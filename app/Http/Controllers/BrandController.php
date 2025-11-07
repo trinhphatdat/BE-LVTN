@@ -18,14 +18,21 @@ class BrandController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
+            'logo_url' => 'nullable|string',
+            'status' => 'required',
         ]);
 
         $brand = Brand::create([
             'name' => $request->name,
             'description' => $request->description,
+            'logo_url' => $request->logo_url,
+            'status' => $request->status,
         ]);
 
-        return response()->json(['message' => 'Brand created successfully', 'brand' => $brand], 201);
+        return response()->json([
+            'message' => 'Brand created successfully',
+            'data' => $brand,
+        ], 201);
     }
 
     public function show($id)
@@ -45,13 +52,20 @@ class BrandController extends Controller
         }
 
         $request->validate([
-            'name' => 'sometimes|required|string|max:255',
+            'name' => 'required|string|max:255',
             'description' => 'nullable|string',
+            'logo_url' => 'nullable|string',
+            'status' => 'required',
         ]);
 
-        $brand->update($request->only(['name', 'description']));
+        $brand->update([
+            'name' => $request->name,
+            'description' => $request->description,
+            'logo_url' => $request->logo_url,
+            'status' => $request->status,
+        ]);
 
-        return response()->json(['message' => 'Brand updated successfully', 'brand' => $brand]);
+        return response()->json(['message' => 'Brand updated successfully', 'data' => $brand]);
     }
 
     public function destroy($id)

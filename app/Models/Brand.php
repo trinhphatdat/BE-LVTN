@@ -11,5 +11,6 @@ class Brand extends Model
         'name',
         'description',
         'logo_url',
+        'status',
     ];
 }
