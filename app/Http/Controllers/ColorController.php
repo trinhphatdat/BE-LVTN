@@ -18,11 +18,13 @@ class ColorController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'hex_code' => 'required|string|size:7',
+            'status' => 'required',
         ]);
 
         $color = Color::create([
             'name' => $request->name,
             'hex_code' => $request->hex_code,
+            'status' => $request->status,
         ]);
 
         return response()->json(['message' => 'Color created successfully', 'color' => $color], 201);
@@ -47,6 +49,7 @@ class ColorController extends Controller
         $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'hex_code' => 'sometimes|required|string|size:7',
+            'status' => 'required',
         ]);
 
         $color->update($request->only(['name', 'hex_code']));
