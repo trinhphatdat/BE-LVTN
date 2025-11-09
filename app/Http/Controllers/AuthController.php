@@ -29,11 +29,11 @@ class AuthController extends Controller
     public function register(RegisterRequest $request)
     {
         try {
-            // Nhận dữ liệu từ frontend, không cần ghép địa chỉ
+
             $userData = $request->except(['password', 'password_confirmation']);
             $userData['password'] = Hash::make($request['password']);
-            $userData['role_id'] = 3; // Mặc định là khách hàng
-            $userData['status_id'] = 1; // Mặc định là hoạt động
+            $userData['role_id'] = 3;
+            $userData['status_id'] = 1;
 
             $user = User::create($userData);
 
@@ -52,10 +52,10 @@ class AuthController extends Controller
 
     public function login(LoginRequest $request)
     {
-        $credentials = $request->only('email', 'password');
+        $account = $request->only('email', 'password');
 
-        if (!$token = JWTAuth::attempt($credentials)) {
-            return response()->json(['error' => 'Unauthorized'], 401);
+        if (!$token = JWTAuth::attempt($account)) {
+            return response()->json(['error' => 'Fail'], 401);
         }
         $data = [
             'random' => rand() . time(),
