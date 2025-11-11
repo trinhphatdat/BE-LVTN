@@ -17,18 +17,29 @@ class SizeController extends Controller
     public function store(Request $request)
     {
         try {
-            $request->validate([
-                'name' => 'required|string|max:255',
-                'description' => 'nullable|string',
-                'length' => 'required|number',
-                'width' => 'required|number',
-                'sleeve' => 'required|number',
-                'status' => 'required',
-            ]);
+            $request->validate(
+                [
+                    'name' => 'required|string|max:255',
+                    'length' => 'required|numeric',
+                    'width' => 'required|numeric',
+                    'sleeve' => 'required|numeric',
+                    'status' => 'required',
+                ],
+                [
+                    'name.required' => 'Tên kích cỡ không được để trống',
+                    'length.required' => 'Chiều dài không được để trống',
+                    'width.required' => 'Chiều rộng không được để trống',
+                    'sleeve.required' => 'Chiều dài tay không được để trống',
+                    'status.required' => 'Trạng thái không được để trống',
+
+                    'length.numeric' => 'Chiều dài phải là số',
+                    'width.numeric' => 'Chiều rộng phải là số',
+                    'sleeve.numeric' => 'Chiều dài tay phải là số',
+                ]
+            );
 
             $size = Size::create([
                 'name' => $request->name,
-                'description' => $request->description,
                 'length' => $request->length,
                 'width' => $request->width,
                 'sleeve' => $request->sleeve,
@@ -68,14 +79,26 @@ class SizeController extends Controller
             return response()->json(['message' => 'Size not found'], 404);
         }
 
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'length' => 'required|number',
-            'width' => 'required|number',
-            'sleeve' => 'required|number',
-            'status' => 'required',
-        ]);
+        $request->validate(
+            [
+                'name' => 'required|string|max:255',
+                'length' => 'required|numeric',
+                'width' => 'required|numeric',
+                'sleeve' => 'required|numeric',
+                'status' => 'required',
+            ],
+            [
+                'name.required' => 'Tên kích cỡ không được để trống',
+                'length.required' => 'Chiều dài không được để trống',
+                'width.required' => 'Chiều rộng không được để trống',
+                'sleeve.required' => 'Chiều dài tay không được để trống',
+                'status.required' => 'Trạng thái không được để trống',
+
+                'length.numeric' => 'Chiều dài phải là số',
+                'width.numeric' => 'Chiều rộng phải là số',
+                'sleeve.numeric' => 'Chiều dài tay phải là số',
+            ]
+        );
 
         $size->update([
             'name' => $request->name,

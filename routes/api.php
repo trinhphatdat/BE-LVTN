@@ -30,7 +30,8 @@ Route::prefix('admin')->middleware([/*'auth:api', /*'is_admin'*/])->group(functi
     Route::put('/roles/{id}', [RoleController::class, 'update']);
     Route::delete('/roles/{id}', [RoleController::class, 'destroy']);
 
-    Route::get('/sizes', [SizeController::class, 'index']);
+    // Route::get('/sizes', [SizeController::class, 'index']);
+    Route::apiResource('sizes', SizeController::class);
 
     Route::apiResource('brands', BrandController::class);
 
