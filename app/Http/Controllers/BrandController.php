@@ -17,17 +17,27 @@ class BrandController extends Controller
     public function store(Request $request)
     {
         try {
-            $request->validate([
-                'name' => 'required|string|max:255',
-                'description' => 'nullable|string',
-                'logo_url' => 'nullable|string',
-                'status' => 'required',
-            ]);
+            $request->validate(
+                [
+                    'name' => 'required|string|max:255',
+                    'description' => 'nullable|string',
+                    'logo_url' => 'required|image',
+                    'status' => 'required',
+                ],
+                [
+                    'name.required' => 'Tên thương hiệu là bắt buộc.',
+                    'logo_url.required' => 'Logo thương hiệu là bắt buộc.',
+                    'logo_url.image' => 'Logo thương hiệu phải là một tệp hình ảnh hợp lệ.',
+                    'status.required' => 'Trạng thái thương hiệu là bắt buộc.',
+                ],
+            );
+
+            $path = $request->file('logo_url')->store('brands', 'public');
 
             $brand = Brand::create([
                 'name' => $request->name,
                 'description' => $request->description,
-                'logo_url' => $request->logo_url,
+                'logo_url' => $path,
                 'status' => $request->status,
             ]);
 
@@ -65,19 +75,38 @@ class BrandController extends Controller
                 return response()->json(['message' => 'Brand not found'], 404);
             }
 
-            $request->validate([
-                'name' => 'required|string|max:255',
-                'description' => 'nullable|string',
-                'logo_url' => 'nullable|string',
-                'status' => 'required',
-            ]);
+            $request->validate(
+                [
+                    'name' => 'required|string|max:255',
+                    'description' => 'nullable|string',
+                    'logo_url' => 'required|image',
+                    'status' => 'required',
+                ],
+                [
+                    'name.required' => 'Tên thương hiệu là bắt buộc.',
+                    'logo_url.required' => 'Logo thương hiệu là bắt buộc.',
+                    'logo_url.image' => 'Logo thương hiệu phải là một tệp hình ảnh hợp lệ.',
+                    'status.required' => 'Trạng thái thương hiệu là bắt buộc.',
+                ],
+            );
 
-            $brand->update([
+            $dataToUpdate = [
                 'name' => $request->name,
                 'description' => $request->description,
-                'logo_url' => $request->logo_url,
                 'status' => $request->status,
-            ]);
+            ];
+
+            // Nếu có upload logo mới
+            if ($request->hasFile('logo_url')) {
+                // Xóa logo cũ nếu tồn tại
+                if ($brand->logo_url && \Storage::disk('public')->exists($brand->logo_url)) {
+                    \Storage::disk('public')->delete($brand->logo_url);
+                }
+
+                $dataToUpdate['logo_url'] = $request->file('logo_url')->store('brands', 'public');
+            }
+
+            $brand->update($dataToUpdate);
 
             return response()->json(['message' => 'Brand updated successfully', 'data' => $brand]);
         } catch (ValidationException $e) {
@@ -98,6 +127,11 @@ class BrandController extends Controller
         $brand = Brand::find($id);
         if (!$brand) {
             return response()->json(['message' => 'Brand not found'], 404);
+        }
+
+        // Xóa logo nếu tồn tại
+        if ($brand->logo_url && \Storage::disk('public')->exists($brand->logo_url)) {
+            \Storage::disk('public')->delete($brand->logo_url);
         }
 
         $brand->delete();
