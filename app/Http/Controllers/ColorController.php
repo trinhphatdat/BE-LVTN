@@ -17,11 +17,19 @@ class ColorController extends Controller
     public function store(Request $request)
     {
         try {
-            $request->validate([
-                'name' => 'required|string|max:255',
-                'hex_code' => 'required|string|size:7',
-                'status' => 'required',
-            ]);
+            $request->validate(
+                [
+                    'name' => 'required|string|max:255',
+                    'hex_code' => 'required|string|size:7',
+                    'status' => 'required',
+                ],
+                [
+                    'name.required' => 'Tên màu sắc không được để trống.',
+                    'hex_code.required' => 'Mã màu không được để trống.',
+                    'hex_code.size' => 'Mã màu phải đúng định dạng 7 ký tự.',
+                    'status.required' => 'Trạng thái không được để trống.',
+                ]
+            );
 
             $color = Color::create([
                 'name' => $request->name,
@@ -29,7 +37,7 @@ class ColorController extends Controller
                 'status' => $request->status,
             ]);
 
-            return response()->json(['message' => 'Color created successfully', 'color' => $color], 201);
+            return response()->json(['message' => 'Tạo mới màu sắc thành công', 'color' => $color], 201);
         } catch (ValidationException $e) {
             return response()->json([
                 'message' => 'Validation error',
@@ -47,7 +55,7 @@ class ColorController extends Controller
     {
         $color = Color::find($id);
         if (!$color) {
-            return response()->json(['message' => 'Color not found'], 404);
+            return response()->json(['message' => 'Màu sắc không tồn tại'], 404);
         }
         return response()->json($color);
     }
@@ -57,18 +65,30 @@ class ColorController extends Controller
         try {
             $color = Color::find($id);
             if (!$color) {
-                return response()->json(['message' => 'Color not found'], 404);
+                return response()->json(['message' => 'Màu sắc không tồn tại'], 404);
             }
 
-            $request->validate([
-                'name' => 'sometimes|required|string|max:255',
-                'hex_code' => 'sometimes|required|string|size:7',
-                'status' => 'required',
-            ]);
+            $request->validate(
+                [
+                    'name' => 'required|string|max:255',
+                    'hex_code' => 'required|string|size:7',
+                    'status' => 'required',
+                ],
+                [
+                    'name.required' => 'Tên màu sắc không được để trống.',
+                    'hex_code.required' => 'Mã màu không được để trống.',
+                    'hex_code.size' => 'Mã màu phải đúng định dạng 7 ký tự.',
+                    'status.required' => 'Trạng thái không được để trống.',
+                ]
+            );
 
-            $color->update($request->only(['name', 'hex_code']));
+            $color->name = $request->name;
+            $color->hex_code = $request->hex_code;
+            $color->status = $request->status;
 
-            return response()->json(['message' => 'Color updated successfully', 'color' => $color]);
+            $color->save();
+
+            return response()->json(['message' => 'Cập nhật màu sắc thành công', 'color' => $color]);
         } catch (ValidationException $e) {
             return response()->json([
                 'message' => 'Validation error',
@@ -86,10 +106,10 @@ class ColorController extends Controller
     {
         $color = Color::find($id);
         if (!$color) {
-            return response()->json(['message' => 'Color not found'], 404);
+            return response()->json(['message' => 'Màu sắc không tồn tại'], 404);
         }
 
-        $color->delete();
-        return response()->json(['message' => 'Color deleted successfully']);
+        $color->status = 0;
+        return response()->json(['message' => 'Xoá màu sắc thành công']);
     }
 }

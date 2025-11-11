@@ -33,9 +33,9 @@ Route::prefix('admin')->middleware([/*'auth:api', /*'is_admin'*/])->group(functi
     // Route::get('/sizes', [SizeController::class, 'index']);
     Route::apiResource('sizes', SizeController::class);
 
-    Route::apiResource('brands', BrandController::class);
-
     Route::apiResource('colors', ColorController::class);
+
+    Route::apiResource('brands', BrandController::class);
 
     Route::apiResource('users', UserController::class);
 
