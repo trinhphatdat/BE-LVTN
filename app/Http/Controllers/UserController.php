@@ -18,8 +18,8 @@ class UserController extends Controller
 {
     public function index()
     {
-        // $users = User::with('role', '!=', 1)->get();
-        $users = User::all();
+        $users = User::where('role_id', '!=', 1)->get();
+        // $users = User::all();
         return response()->json($users, 200);
     }
 
@@ -35,7 +35,7 @@ class UserController extends Controller
                 // Tạo giỏ hàng cho người dùng mới
                 Cart::create([
                     'user_id' => $user->id,
-                    'status_id' => 1,
+                    'status' => 1,
                 ]);
             }
             return response()->json(['message' => 'Thêm mới user thành công'], 200);
@@ -56,7 +56,7 @@ class UserController extends Controller
     {
         $user = User::find($id);
         if (!$user) {
-            return response()->json(['message' => 'User not found'], 404);
+            return response()->json(['message' => 'User không tồn tại'], 404);
         }
         return response()->json($user);
     }
@@ -71,12 +71,12 @@ class UserController extends Controller
 
             // Cập nhật thông tin cơ bản
             $user->role_id = $request->role_id;
-            $user->status_id = $request->status_id;
+            $user->status = $request->status;
             $user->fullname = $request->fullname;
             $user->email = $request->email;
             $user->phone_number = $request->phone_number;
+            $user->address = $request->address;
 
-            // Nếu có đổi mật khẩu thì mã hóa và lưu lại
             if ($request->boolean('change_password')) {
                 $user->password = Hash::make($request->password);
             }
@@ -101,15 +101,16 @@ class UserController extends Controller
     {
         $user = User::find($id);
         if (!$user) {
-            return response()->json(['message' => 'User not found'], 404);
+            return response()->json(['message' => 'User không tồn tại'], 404);
         }
 
-        // Lấy cart của user
-        $cart = Cart::where('user_id', $id)->first();
-        //Xoá items trong cart trước
-        CartItem::where('cart_id', $cart->id)->delete();
-        $cart->delete();
-        $user->delete();
+        $user->status = 0;
+        $user->save();
+
+        // $cart = Cart::where('user_id', $id)->first();
+        // CartItem::where('cart_id', $cart->id)->delete();
+        // $cart->delete();
+        // $user->delete();
 
         return response()->json(['message' => 'Xoá user thành công'], 200);
     }

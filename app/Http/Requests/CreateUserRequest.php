@@ -22,7 +22,7 @@ class CreateUserRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'status_id' => 'required',
+            'status' => 'required',
             'role_id' => 'required',
             'fullname' => 'required|min:4',
             'email' => 'required|email|unique:users,email',
@@ -48,7 +48,7 @@ class CreateUserRequest extends FormRequest
             'email' => 'Email',
             'phone_number' => 'Số điện thoại',
             'password' => 'Mật khẩu',
-            'status_id' => 'Tình trạng',
+            'status' => 'Tình trạng',
             'role_id' => 'Vai trò',
         ];
     }

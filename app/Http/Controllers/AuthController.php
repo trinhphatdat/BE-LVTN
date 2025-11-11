@@ -97,7 +97,6 @@ class AuthController extends Controller
     {
         $refreshToken = $request['refresh_token'];
         return response()->json($refreshToken);
-        // return $this->respondWithToken(auth('api')->refresh());
     }
 
     public function forgotPassword(Request $request)

@@ -17,15 +17,19 @@ class RoleController extends Controller
     public function store(Request $request)
     {
         try {
-            $request->validate([
-                'name' => 'required|string|max:255',
-                'description' => 'nullable|string',
-                'status' => 'required',
-            ]);
+            $request->validate(
+                [
+                    'name' => 'required|string|max:255',
+                    'status' => 'required',
+                ],
+                [
+                    'name.required' => 'Tên vai trò không được để trống',
+                    'status.required' => 'Tình trạng vai trò không được để trống',
+                ]
+            );
 
             $role = Role::create([
                 'name' => $request->name,
-                'description' => $request->description,
                 'status' => $request->status,
             ]);
 
@@ -50,7 +54,7 @@ class RoleController extends Controller
     {
         $role = Role::find($id);
         if (!$role) {
-            return response()->json(['message' => 'Role not found'], 404);
+            return response()->json(['message' => 'Role không tồn tại'], 404);
         }
         return response()->json($role);
     }
@@ -60,18 +64,16 @@ class RoleController extends Controller
         try {
             $role = Role::find($id);
             if (!$role) {
-                return response()->json(['message' => 'Role not found'], 404);
+                return response()->json(['message' => 'Role không tồn tại'], 404);
             }
 
             $request->validate([
                 'name' => 'required|string|max:255',
-                'description' => 'nullable|string',
                 'status' => 'required',
             ]);
 
             $role->update([
                 'name' => $request->name,
-                'description' => $request->description,
                 'status' => $request->status,
             ]);
 
@@ -96,10 +98,13 @@ class RoleController extends Controller
     {
         $role = Role::find($id);
         if (!$role) {
-            return response()->json(['message' => 'Role not found'], 404);
+            return response()->json(['message' => 'Role không tồn tại'], 404);
         }
 
-        $role->delete();
-        return response()->json(['message' => 'Role deleted successfully']);
+        $role->status = 0;
+        $role->save();
+
+        // $role->delete();
+        return response()->json(['message' => 'Xoá role thành công']);
     }
 }

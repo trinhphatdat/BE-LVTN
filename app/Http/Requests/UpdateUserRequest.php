@@ -23,7 +23,7 @@ class UpdateUserRequest extends FormRequest
     {
         $rules = [
             'role_id' => 'required',
-            'status_id' => 'required',
+            'status' => 'required',
             'fullname' => 'required|min:4',
             'email' => 'required|email|unique:users,email,' . $this->route('user'),
             'phone_number' => 'required|regex:/^0[0-9]{9,10}$/|unique:users,phone_number,' . $this->route('user'),
@@ -48,7 +48,7 @@ class UpdateUserRequest extends FormRequest
     {
         return [
             'role_id' => 'Vai trò',
-            'status_id' => 'Tình trạng',
+            'status' => 'Tình trạng',
             'fullname' => 'Tên người dùng',
             'email' => 'Email',
             'phone_number' => 'Số điện thoại',

@@ -21,5 +21,44 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout']);
 Route::get('/profile', [AuthController::class, 'profile']);
 
-Route::apiResource('brands', BrandController::class);
-Route::apiResource('colors', ColorController::class);
+//API dành cho quyền admin
+Route::prefix('admin')->middleware([/*'auth:api', /*'is_admin'*/])->group(function () {
+
+    Route::get('/roles', [RoleController::class, 'index']);
+    Route::post('/roles', [RoleController::class, 'store']);
+    Route::get('/roles/{id}', [RoleController::class, 'show']);
+    Route::put('/roles/{id}', [RoleController::class, 'update']);
+    Route::delete('/roles/{id}', [RoleController::class, 'destroy']);
+
+    Route::get('/sizes', [SizeController::class, 'index']);
+
+    Route::apiResource('brands', BrandController::class);
+
+    Route::apiResource('colors', ColorController::class);
+
+    Route::apiResource('users', UserController::class);
+
+    //product
+    Route::get('products/all', [ProductController::class, 'all']);
+    Route::post('products', [ProductController::class, 'store']);
+    Route::put('products/{product}', [ProductController::class, 'update']);
+    Route::delete('products/{product}', [ProductController::class, 'destroy']);
+});
+
+// Thao tác với products phía client
+Route::get('products/category/{categoryId}', [ProductController::class, 'getByCategory']);
+Route::get('/products/search', [ProductController::class, 'search']);
+Route::apiResource('products', ProductController::class)->only(['index', 'show']);
+Route::get('/products', [ProductController::class, 'getProductsByPriceRange']);
+// Route::apiResource('products', ProductController::class);
+
+// Update profile
+Route::middleware('auth:api')->put('/edit-user', [ProfileController::class, 'update']);
+
+// Cart
+Route::middleware('auth:api')->get('/cart', [CartController::class, 'getCartByUser']);
+
+// Cart Items
+Route::apiResource('cartItems', CartItemController::class);
+Route::middleware('auth:api')->patch('/cartItems/increment/{id}', [CartItemController::class, 'increment']);
+Route::middleware('auth:api')->patch('/cartItems/decrement/{id}', [CartItemController::class, 'decrement']);
