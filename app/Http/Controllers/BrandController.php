@@ -43,7 +43,7 @@ class BrandController extends Controller
             ]);
 
             return response()->json([
-                'message' => 'Brand created successfully',
+                'message' => 'Tạo thương hiệu thành công',
                 'data' => $brand,
             ], 201);
         } catch (ValidationException $e) {
@@ -63,7 +63,7 @@ class BrandController extends Controller
     {
         $brand = Brand::find($id);
         if (!$brand) {
-            return response()->json(['message' => 'Brand not found'], 404);
+            return response()->json(['message' => 'Không tìm thấy thương hiệu'], 404);
         }
         return response()->json($brand);
     }
@@ -94,13 +94,10 @@ class BrandController extends Controller
                 'status' => $request->status,
             ];
 
-            // Nếu có upload logo mới
             if ($request->hasFile('logo_url')) {
-                // Xóa logo cũ nếu tồn tại
                 if ($brand->logo_url && Storage::disk('public')->exists($brand->logo_url)) {
                     Storage::disk('public')->delete($brand->logo_url);
                 }
-
                 $dataToUpdate['logo_url'] = $request->file('logo_url')->store('brands', 'public');
             }
 
@@ -133,6 +130,6 @@ class BrandController extends Controller
 
         $brand->delete();
 
-        return response()->json(['message' => 'Brand deleted successfully']);
+        return response()->json(['message' => 'Thương hiệu đã được xóa thành công']);
     }
 }

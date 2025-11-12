@@ -8,7 +8,8 @@ class Promotion extends Model
 {
     protected $table = 'promotions';
     protected $fillable = [
-        'promotion_name',
+        'name',
+        'url_image',
         'description',
         'discount_type',
         'discount_value',
@@ -17,6 +18,6 @@ class Promotion extends Model
         'used_count',
         'start_date',
         'end_date',
-        'is_active',
+        'status',
     ];
 }
