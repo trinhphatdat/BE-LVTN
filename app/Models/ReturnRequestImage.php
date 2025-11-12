@@ -12,4 +12,8 @@ class ReturnRequestImage extends Model
         'image_url',
         'description',
     ];
+    public function returnRequest()
+    {
+        return $this->belongsTo(ReturnRequest::class, 'return_request_id');
+    }
 }

@@ -20,18 +20,12 @@ class Product extends Model
         'price',
         'status',
     ];
-    public function cartItem(): HasMany
+    public function brand()
     {
-        return $this->hasMany(CartItem::class);
+        return $this->belongsTo(Brand::class, 'brand_id');
     }
-
-    public function productVariants(): HasMany
+    public function productVariants()
     {
         return $this->hasMany(ProductVariant::class);
-    }
-
-    public function productImages(): HasMany
-    {
-        return $this->hasMany(ProductImage::class);
     }
 }

@@ -26,4 +26,20 @@ class ReturnRequest extends Model
         'received_at',
         'refunded_at',
     ];
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+    public function order()
+    {
+        return $this->belongsTo(Order::class, 'order_id');
+    }
+    public function returnRequestItems()
+    {
+        return $this->hasMany(ReturnRequestItem::class, 'return_request_id');
+    }
+    public function returnRequestImages()
+    {
+        return $this->hasMany(ReturnRequestImage::class, 'return_request_id');
+    }
 }

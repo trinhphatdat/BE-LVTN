@@ -14,8 +14,8 @@ class Size extends Model
         'sleeve',
         'status',
     ];
-    // public function productVariants()
-    // {
-    //     return $this->hasMany(ProductVariant::class);
-    // }
+    public function productVariants()
+    {
+        return $this->hasMany(ProductVariant::class, 'size_id');
+    }
 }

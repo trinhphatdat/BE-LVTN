@@ -20,4 +20,8 @@ class Promotion extends Model
         'end_date',
         'status',
     ];
+    public function orders()
+    {
+        return $this->hasMany(Order::class, 'promotion_id');
+    }
 }
