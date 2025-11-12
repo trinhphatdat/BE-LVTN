@@ -8,6 +8,7 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ColorController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PromotionController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SizeController;
 use Illuminate\Http\Request;
@@ -30,12 +31,13 @@ Route::prefix('admin')->middleware([/*'auth:api', /*'is_admin'*/])->group(functi
     Route::put('/roles/{id}', [RoleController::class, 'update']);
     Route::delete('/roles/{id}', [RoleController::class, 'destroy']);
 
-    // Route::get('/sizes', [SizeController::class, 'index']);
     Route::apiResource('sizes', SizeController::class);
 
     Route::apiResource('colors', ColorController::class);
 
     Route::apiResource('brands', BrandController::class);
+
+    Route::apiResource('promotions', PromotionController::class);
 
     Route::apiResource('users', UserController::class);
 

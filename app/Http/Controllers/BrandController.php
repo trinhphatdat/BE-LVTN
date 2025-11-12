@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Brand;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Storage;
 
 class BrandController extends Controller
 {
@@ -72,20 +73,17 @@ class BrandController extends Controller
         try {
             $brand = Brand::find($id);
             if (!$brand) {
-                return response()->json(['message' => 'Brand not found'], 404);
+                return response()->json(['message' => 'Không tìm thấy thương hiệu'], 404);
             }
 
             $request->validate(
                 [
                     'name' => 'required|string|max:255',
                     'description' => 'nullable|string',
-                    'logo_url' => 'required|image',
                     'status' => 'required',
                 ],
                 [
                     'name.required' => 'Tên thương hiệu là bắt buộc.',
-                    'logo_url.required' => 'Logo thương hiệu là bắt buộc.',
-                    'logo_url.image' => 'Logo thương hiệu phải là một tệp hình ảnh hợp lệ.',
                     'status.required' => 'Trạng thái thương hiệu là bắt buộc.',
                 ],
             );
@@ -99,8 +97,8 @@ class BrandController extends Controller
             // Nếu có upload logo mới
             if ($request->hasFile('logo_url')) {
                 // Xóa logo cũ nếu tồn tại
-                if ($brand->logo_url && \Storage::disk('public')->exists($brand->logo_url)) {
-                    \Storage::disk('public')->delete($brand->logo_url);
+                if ($brand->logo_url && Storage::disk('public')->exists($brand->logo_url)) {
+                    Storage::disk('public')->delete($brand->logo_url);
                 }
 
                 $dataToUpdate['logo_url'] = $request->file('logo_url')->store('brands', 'public');
@@ -129,9 +127,8 @@ class BrandController extends Controller
             return response()->json(['message' => 'Brand not found'], 404);
         }
 
-        // Xóa logo nếu tồn tại
-        if ($brand->logo_url && \Storage::disk('public')->exists($brand->logo_url)) {
-            \Storage::disk('public')->delete($brand->logo_url);
+        if ($brand->logo_url && Storage::disk('public')->exists($brand->logo_url)) {
+            Storage::disk('public')->delete($brand->logo_url);
         }
 
         $brand->delete();
