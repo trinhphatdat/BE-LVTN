@@ -5,6 +5,7 @@ use App\Http\Controllers\BrandController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CartItemController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\ClientProductController;
 use App\Http\Controllers\ColorController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
@@ -42,15 +43,23 @@ Route::prefix('admin')->middleware([/*'auth:api', /*'is_admin'*/])->group(functi
     Route::apiResource('users', UserController::class);
 
     //product
-    Route::get('products/all', [ProductController::class, 'all']);
+    Route::get('products', [ProductController::class, 'index']);
+    Route::get('products/{product}', [ProductController::class, 'show']);
+    // Route::get('products/all', [ProductController::class, 'all']);
     Route::post('products', [ProductController::class, 'store']);
     Route::put('products/{product}', [ProductController::class, 'update']);
     Route::delete('products/{product}', [ProductController::class, 'destroy']);
 });
 
+// Client Product
+Route::prefix('client')->group(function () {
+    Route::get('/products/search', [ClientProductController::class, 'search']);
+    Route::get('products', [ClientProductController::class, 'index']);
+    Route::get('products/{id}', [ClientProductController::class, 'show']);
+});
+
 // Thao tác với products phía client
 Route::get('products/category/{categoryId}', [ProductController::class, 'getByCategory']);
-Route::get('/products/search', [ProductController::class, 'search']);
 Route::apiResource('products', ProductController::class)->only(['index', 'show']);
 Route::get('/products', [ProductController::class, 'getProductsByPriceRange']);
 // Route::apiResource('products', ProductController::class);

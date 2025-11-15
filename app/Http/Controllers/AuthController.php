@@ -40,7 +40,7 @@ class AuthController extends Controller
             // Tạo giỏ hàng cho người dùng mới
             Cart::create([
                 'user_id' => $user->id,
-                'status_id' => 1,
+                'status' => 1,
             ]);
             return response()->json(['message' => 'Thêm mới tài khoản thành công'], 201);
         } catch (\Exception $e) {
