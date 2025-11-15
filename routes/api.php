@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Http;
+use App\Http\Controllers\OrderController;
 
 //API authentication
 Route::post('/register', [AuthController::class, 'register']);
@@ -74,3 +75,11 @@ Route::middleware('auth:api')->get('/cart', [CartController::class, 'getCartByUs
 Route::apiResource('cartItems', CartItemController::class);
 Route::middleware('auth:api')->patch('/cartItems/increment/{id}', [CartItemController::class, 'increment']);
 Route::middleware('auth:api')->patch('/cartItems/decrement/{id}', [CartItemController::class, 'decrement']);
+
+// Orders
+// Route::middleware('auth:sanctum')->group(function () {
+Route::post('/orders/checkout', [OrderController::class, 'checkout']);
+Route::get('/orders', [OrderController::class, 'getOrders']);
+Route::get('/orders/{id}', [OrderController::class, 'getOrderDetail']);
+Route::post('/orders/{id}/cancel', [OrderController::class, 'cancelOrder']);
+// });
