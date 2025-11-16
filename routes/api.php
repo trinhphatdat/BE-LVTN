@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Http;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\DashboardController;
 
 //API authentication
 Route::post('/register', [AuthController::class, 'register']);
@@ -25,7 +26,7 @@ Route::post('/logout', [AuthController::class, 'logout']);
 Route::get('/profile', [AuthController::class, 'profile']);
 
 //API dành cho quyền admin
-Route::prefix('admin')->middleware([/*'auth:api', /*'is_admin'*/])->group(function () {
+Route::prefix('admin')->middleware([/*'auth:api', 'is_admin'*/])->group(function () {
 
     Route::get('/roles', [RoleController::class, 'index']);
     Route::post('/roles', [RoleController::class, 'store']);
@@ -50,6 +51,19 @@ Route::prefix('admin')->middleware([/*'auth:api', /*'is_admin'*/])->group(functi
     Route::post('products', [ProductController::class, 'store']);
     Route::put('products/{product}', [ProductController::class, 'update']);
     Route::delete('products/{product}', [ProductController::class, 'destroy']);
+
+    // Orders management
+    Route::get('orders', [OrderController::class, 'adminGetOrders']);
+    Route::get('orders/{id}', [OrderController::class, 'adminGetOrderDetail']);
+    Route::put('orders/{id}/status', [OrderController::class, 'adminUpdateOrderStatus']);
+    Route::delete('orders/{id}', [OrderController::class, 'adminDeleteOrder']);
+
+    // Dashboard statistics
+    Route::get('dashboard/statistics', [DashboardController::class, 'getStatistics']);
+    Route::get('dashboard/monthly-revenue', [DashboardController::class, 'getMonthlyRevenue']);
+    Route::get('dashboard/top-products', [DashboardController::class, 'getTopSellingProducts']);
+    Route::get('dashboard/recent-orders', [DashboardController::class, 'getRecentOrders']);
+    Route::get('dashboard/order-status', [DashboardController::class, 'getOrderStatusStatistics']);
 });
 
 // Client Product

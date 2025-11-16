@@ -33,7 +33,7 @@ class AuthController extends Controller
             $userData = $request->except(['password', 'password_confirmation']);
             $userData['password'] = Hash::make($request['password']);
             $userData['role_id'] = 3;
-            $userData['status_id'] = 1;
+            $userData['status'] = 1;
 
             $user = User::create($userData);
 
@@ -56,6 +56,9 @@ class AuthController extends Controller
 
         if (!$token = JWTAuth::attempt($account)) {
             return response()->json(['error' => 'Fail'], 401);
+        }
+        if (!Auth::user()->status) {
+            return response()->json(['error' => 'Tài khoản đã bị khóa'], 403);
         }
         $data = [
             'random' => rand() . time(),
