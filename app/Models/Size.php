@@ -12,6 +12,7 @@ class Size extends Model
         'length',
         'width',
         'sleeve',
+        'order',
         'status',
     ];
     public function productVariants()

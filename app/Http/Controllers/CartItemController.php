@@ -15,8 +15,10 @@ class CartItemController extends Controller
 
     public function store(Request $request)
     {
-        $productVariant = ProductVariant::with('product')->findOrFail($request->product_variant_id);
+        $productVariant = ProductVariant::with(['product', 'size', 'color'])
+            ->findOrFail($request->product_variant_id);
 
+        // Kiểm tra stock
         if ($productVariant->stock < $request->quantity) {
             return response()->json([
                 'success' => false,
@@ -24,7 +26,10 @@ class CartItemController extends Controller
                 'available_stock' => $productVariant->stock
             ], 400);
         }
-        $price = $productVariant->product->price;
+
+        // Lấy giá từ variant (đã tính giảm giá)
+        $price = $productVariant->price;
+
         $existingCartItem = CartItem::where('cart_id', $request->cart_id)
             ->where('product_variant_id', $request->product_variant_id)
             ->first();
@@ -44,6 +49,7 @@ class CartItemController extends Controller
             }
 
             $existingCartItem->quantity = $newQuantity;
+            $existingCartItem->price = $price; // Cập nhật giá mới nhất
             $existingCartItem->total_price = $price * $newQuantity;
             $existingCartItem->save();
 
@@ -54,57 +60,61 @@ class CartItemController extends Controller
                 'cart_id' => $request->cart_id,
                 'product_variant_id' => $request->product_variant_id,
                 'quantity' => $request->quantity,
-                'price' => $price,
+                'price' => $price, // Giá đã tính giảm từ variant
                 'total_price' => $price * $request->quantity,
             ]);
         }
-        return response()->json(['message' => 'Thêm sản phẩm vào giỏ hàng thành công', 'data' => $cartItem], 201);
+
+        // Load relationships để trả về đầy đủ thông tin
+        $cartItem->load(['productVariant.size', 'productVariant.color', 'productVariant.product']);
+
+        return response()->json([
+            'message' => 'Thêm sản phẩm vào giỏ hàng thành công',
+            'data' => $cartItem
+        ], 201);
     }
 
     public function show(string $cart_id)
     {
-        $items = CartItem::with(['productVariant.size', 'productVariant.color', 'productVariant.product'])
+        $items = CartItem::with([
+            'productVariant.size',
+            'productVariant.color',
+            'productVariant.product.brand'
+        ])
             ->where('cart_id', $cart_id)
             ->get();
+
         return response()->json([
             'count' => $items->count(),
-            'total_money' => $items->sum(function ($item) {
-                return $item->price * $item->quantity;
-            }),
+            'total_money' => $items->sum('total_price'),
             'data' => $items,
         ], 200);
-    }
-
-    public function update(Request $request, string $id)
-    {
-        $item = CartItem::find($id);
-        if (!$item) {
-            return response()->json(['message' => 'Không tìm thấy sản phẩm'], 404);
-        }
-        $item->quantity = $request->input('quantity', $item->quantity);
-        $item->total_price = $item->price * $item->quantity;
-        $item->save();
-
-        return response()->json(['message' => 'Số lượng sản phẩm đã được cập nhật', 'data' => $item], 200);
     }
 
     public function destroy(string $id)
     {
         $cartItem = CartItem::find($id);
+
         if (!$cartItem) {
             return response()->json(['message' => 'Không tìm thấy sản phẩm'], 404);
         }
+
         $cartItem->delete();
-        return response()->json(['message' => 'Xoá sản phẩm khỏi giỏ hàng thành công']);
+
+        return response()->json(['message' => 'Xoá sản phẩm khỏi giỏ hàng thành công'], 200);
     }
+
     public function increment(string $id)
     {
-        $item = CartItem::find($id);
+        $item = CartItem::with('productVariant')->find($id);
+
         if (!$item) {
             return response()->json(['message' => 'Không tìm thấy sản phẩm'], 404);
         }
 
-        $productVariant = ProductVariant::find($item->product_variant_id);
+        $productVariant = $item->productVariant;
+
+        // Kiểm tra stock
         if ($productVariant->stock < $item->quantity + 1) {
             return response()->json([
                 'message' => 'Số lượng sản phẩm trong kho không đủ',
@@ -112,27 +122,45 @@ class CartItemController extends Controller
             ], 400);
         }
 
-        $item->increment('quantity', 1);
+        $item->quantity += 1;
+        // Cập nhật giá mới nhất từ variant
+        $item->price = $productVariant->price;
         $item->total_price = $item->price * $item->quantity;
         $item->save();
 
-        return response()->json(['message' => 'Số lượng sản phẩm đã được cập nhật', 'data' => $item], 200);
+        $item->load(['productVariant.size', 'productVariant.color', 'productVariant.product']);
+
+        return response()->json([
+            'message' => 'Tăng số lượng sản phẩm thành công',
+            'data' => $item
+        ], 200);
     }
+
     public function decrement(string $id)
     {
-        $item = CartItem::find($id); // dùng find thay vì findOrFail để tránh exception
+        $item = CartItem::with('productVariant')->find($id);
+
         if (!$item) {
             return response()->json(['message' => 'Không tìm thấy sản phẩm'], 404);
         }
+
         if ($item->quantity > 1) {
-            $item->decrement('quantity', 1);
+            $item->quantity -= 1;
+            // Cập nhật giá mới nhất từ variant
+            $item->price = $item->productVariant->price;
             $item->total_price = $item->price * $item->quantity;
             $item->save();
-            return response()->json(['message' => 'Số lượng sản phẩm đã được cập nhật', 'data' => $item], 200);
+
+            $item->load(['productVariant.size', 'productVariant.color', 'productVariant.product']);
+
+            return response()->json([
+                'message' => 'Giảm số lượng sản phẩm thành công',
+                'data' => $item
+            ], 200);
         }
-        // else {
-        //     $item->delete();
-        //     return response()->json(['message' => 'Sản phẩm đã được xóa khỏi giỏ hàng'], 200);
-        // }
+
+        return response()->json([
+            'message' => 'Số lượng tối thiểu là 1. Vui lòng xóa sản phẩm nếu không muốn mua.'
+        ], 400);
     }
 }

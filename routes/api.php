@@ -80,20 +80,18 @@ Route::get('/products', [ProductController::class, 'getProductsByPriceRange']);
 // Route::apiResource('products', ProductController::class);
 
 // Update profile
-Route::middleware('auth:api')->put('/edit-user', [ProfileController::class, 'update']);
+Route::put('/edit-user', [ProfileController::class, 'update']);
 
 // Cart
-Route::middleware('auth:api')->get('/cart', [CartController::class, 'getCartByUser']);
+Route::get('/cart', [CartController::class, 'getCartByUser']);
 
 // Cart Items
 Route::apiResource('cartItems', CartItemController::class);
-Route::middleware('auth:api')->patch('/cartItems/increment/{id}', [CartItemController::class, 'increment']);
-Route::middleware('auth:api')->patch('/cartItems/decrement/{id}', [CartItemController::class, 'decrement']);
+Route::patch('/cartItems/increment/{id}', [CartItemController::class, 'increment']);
+Route::patch('/cartItems/decrement/{id}', [CartItemController::class, 'decrement']);
 
 // Orders
-// Route::middleware('auth:sanctum')->group(function () {
 Route::post('/orders/checkout', [OrderController::class, 'checkout']);
 Route::get('/orders', [OrderController::class, 'getOrders']);
 Route::get('/orders/{id}', [OrderController::class, 'getOrderDetail']);
 Route::post('/orders/{id}/cancel', [OrderController::class, 'cancelOrder']);
-// });
