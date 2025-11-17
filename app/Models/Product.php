@@ -15,6 +15,10 @@ class Product extends Model
         'description',
         'gender',
         'material',
+        'min_price',
+        'max_price',
+        'has_discount',
+        'max_discount',
         'status',
     ];
     public function brand()

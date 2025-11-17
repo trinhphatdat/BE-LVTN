@@ -9,47 +9,115 @@ class ClientProductController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Product::query();
+        $query = Product::with(['brand', 'productVariants.color', 'productVariants.size']);
 
-        // Lọc theo khoảng giá
+        // Lọc theo khoảng giá (dựa trên min_price và max_price của product)
         if ($request->has('min_price') && $request->has('max_price')) {
             $minPrice = $request->input('min_price');
             $maxPrice = $request->input('max_price');
 
-            $query->whereBetween('price', [$minPrice, $maxPrice]);
+            // Product có giá nằm trong khoảng filter
+            $query->where(function ($q) use ($minPrice, $maxPrice) {
+                $q->where('min_price', '>=', $minPrice)
+                    ->where('min_price', '<=', $maxPrice)
+                    ->orWhere('max_price', '>=', $minPrice)
+                    ->where('max_price', '<=', $maxPrice)
+                    ->orWhere(function ($q2) use ($minPrice, $maxPrice) {
+                        $q2->where('min_price', '<=', $minPrice)
+                            ->where('max_price', '>=', $maxPrice);
+                    });
+            });
         }
 
-        // Sắp xếp theo giá
+        // Lọc theo brand
+        if ($request->has('brand_id')) {
+            $query->where('brand_id', $request->input('brand_id'));
+        }
+
+        // Lọc theo gender
+        if ($request->has('gender')) {
+            $query->where('gender', $request->input('gender'));
+        }
+
+        // Lọc sản phẩm có discount
+        if ($request->has('has_discount') && $request->input('has_discount') == 1) {
+            $query->where('has_discount', 1);
+        }
+
+        // Lọc theo size (phải check trong variants)
+        if ($request->has('size_id')) {
+            $query->whereHas('productVariants', function ($q) use ($request) {
+                $q->where('size_id', $request->input('size_id'));
+            });
+        }
+
+        // Lọc theo color (phải check trong variants)
+        if ($request->has('color_id')) {
+            $query->whereHas('productVariants', function ($q) use ($request) {
+                $q->where('color_id', $request->input('color_id'));
+            });
+        }
+
+        // Sắp xếp
         if ($request->has('sort')) {
             $sortOrder = $request->input('sort');
 
-            if ($sortOrder === 'asc') {
-                $query->orderBy('price', 'asc');
-            } else if ($sortOrder === 'desc') {
-                $query->orderBy('price', 'desc');
+            if ($sortOrder === 'price_asc') {
+                $query->orderBy('min_price', 'asc');
+            } else if ($sortOrder === 'price_desc') {
+                $query->orderBy('max_price', 'desc');
+            } else if ($sortOrder === 'discount') {
+                $query->orderBy('max_discount', 'desc');
+            } else if ($sortOrder === 'newest') {
+                $query->orderBy('created_at', 'desc');
+            } else if ($sortOrder === 'oldest') {
+                $query->orderBy('created_at', 'asc');
             }
         } else {
             $query->orderBy('created_at', 'desc');
         }
 
-        $products = $query->paginate(10);
+        $products = $query->paginate(12);
 
         return response()->json($products);
     }
+
     public function show($id)
     {
-        $product = Product::with(['productVariants.color', 'productVariants.size', 'productVariants.productImages'])
+        $product = Product::with([
+            'brand',
+            'productVariants.color',
+            'productVariants.size'
+        ])
             ->findOrFail($id);
+
         if (!$product) {
             return response()->json(['message' => 'Product not found'], 404);
         }
+
         return response()->json($product);
     }
+
     public function search(Request $request)
     {
         $keyword = $request->input('q');
-        $products = Product::where('title', 'like', '%' . $keyword . '%')->get();
+
+        $products = Product::with(['brand', 'productVariants.color', 'productVariants.size'])
+            ->where('title', 'like', '%' . $keyword . '%')
+            ->get();
 
         return response()->json($products);
+    }
+
+    public function getFilters()
+    {
+        // Lấy thông tin để hiển thị filters
+        return response()->json([
+            'price_range' => [
+                'min' => Product::min('min_price') ?? 0,
+                'max' => Product::max('max_price') ?? 0,
+            ],
+            'max_discount' => Product::max('max_discount') ?? 0,
+        ]);
     }
 }
