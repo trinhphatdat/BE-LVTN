@@ -12,6 +12,10 @@ class ProductVariant extends Model
         'size_id',
         'color_id',
         'stock',
+        'original_price',
+        'discount',
+        'price',
+        'image_url',
         'status',
     ];
 
@@ -34,10 +38,6 @@ class ProductVariant extends Model
     public function productReviews()
     {
         return $this->hasMany(ProductReview::class, 'product_variant_id');
-    }
-    public function productImages()
-    {
-        return $this->hasMany(ProductImage::class, 'product_variant_id');
     }
     public function returnRequestItems()
     {

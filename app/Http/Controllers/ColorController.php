@@ -110,6 +110,8 @@ class ColorController extends Controller
         }
 
         $color->status = 0;
+        $color->save();
+
         return response()->json(['message' => 'Xoá màu sắc thành công']);
     }
 }

@@ -52,13 +52,13 @@ Route::prefix('admin')->middleware([/*'auth:api', 'is_admin'*/])->group(function
     Route::put('products/{product}', [ProductController::class, 'update']);
     Route::delete('products/{product}', [ProductController::class, 'destroy']);
 
-    // Orders management
+    // Orders 
     Route::get('orders', [OrderController::class, 'adminGetOrders']);
     Route::get('orders/{id}', [OrderController::class, 'adminGetOrderDetail']);
     Route::put('orders/{id}/status', [OrderController::class, 'adminUpdateOrderStatus']);
     Route::delete('orders/{id}', [OrderController::class, 'adminDeleteOrder']);
 
-    // Dashboard statistics
+    // Dashboard
     Route::get('dashboard/statistics', [DashboardController::class, 'getStatistics']);
     Route::get('dashboard/monthly-revenue', [DashboardController::class, 'getMonthlyRevenue']);
     Route::get('dashboard/top-products', [DashboardController::class, 'getTopSellingProducts']);
