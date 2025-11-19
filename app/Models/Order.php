@@ -25,6 +25,7 @@ class Order extends Model
         'payment_status',
         'paid_at',
         'is_custom_order',
+        'custom_fee',
         'shipped_at',
         'delivered_at',
         'canceled_at',
@@ -40,5 +41,9 @@ class Order extends Model
     public function orderDetails()
     {
         return $this->hasMany(OrderDetail::class, 'order_id');
+    }
+    public function customRequest()
+    {
+        return $this->hasOne(CustomRequest::class, 'order_id');
     }
 }

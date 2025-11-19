@@ -10,19 +10,7 @@ class CustomRequest extends Model
     protected $fillable = [
         'user_id',
         'order_id',
-        'logo_number',
-        'size',
-        'quantity',
-        'custom_text',
-        'price',
-        'custom_fee',
-        'total_price',
-        'status',
-        'admin_note',
-        'admin_id',
-        'reject_reason',
-        'approved_at',
-        'rejected_at',
+        'model_number',
     ];
     public function user()
     {

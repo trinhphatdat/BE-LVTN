@@ -8,6 +8,7 @@ use App\Models\OrderDetail;
 use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\ProductVariant;
+use App\Models\CustomRequest;
 use App\Models\Promotion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -59,6 +60,32 @@ class OrderController extends Controller
 
             // Phí vận chuyển
             $shippingFee = 15000;
+
+            // Xử lý custom order
+            $isCustomOrder = $request->input('is_custom_order', false);
+            $customFee = 0;
+            $modelNumber = null;
+
+            if ($isCustomOrder) {
+                $customFee = 50000; // Phí custom cố định 50k
+                $modelNumber = $request->input('model_number', 1);
+
+                // Validate model number
+                // if (!in_array($modelNumber, [1, 2, 3])) {
+                //     return response()->json([
+                //         'success' => false,
+                //         'message' => 'Số mẫu custom không hợp lệ. Vui lòng chọn mẫu từ 1-3'
+                //     ], 400);
+                // }
+
+                // Kiểm tra ghi chú custom
+                // if (empty($request->text_note)) {
+                //     return response()->json([
+                //         'success' => false,
+                //         'message' => 'Vui lòng ghi chú chi tiết về mẫu áo custom trong phần ghi chú'
+                //     ], 400);
+                // }
+            }
 
             // Xử lý mã giảm giá (nếu có)
             $promotionDiscount = 0;
@@ -117,8 +144,8 @@ class OrderController extends Controller
                 }
             }
 
-            // Tổng tiền cuối cùng
-            $totalMoney = $itemsTotal + $shippingFee - $promotionDiscount;
+            // Tổng tiền cuối cùng (bao gồm phí custom nếu có)
+            $totalMoney = $itemsTotal + $shippingFee + $customFee - $promotionDiscount;
 
             // Tạo đơn hàng
             $order = Order::create([
@@ -137,8 +164,18 @@ class OrderController extends Controller
                 'total_money' => $totalMoney,
                 'payment_method' => $request->payment_method,
                 'payment_status' => 'unpaid',
-                'is_custom_order' => false,
+                'is_custom_order' => $isCustomOrder,
+                'custom_fee' => $customFee,
             ]);
+
+            // Tạo custom request nếu là đơn hàng custom
+            if ($isCustomOrder) {
+                CustomRequest::create([
+                    'user_id' => $user->id,
+                    'order_id' => $order->id,
+                    'model_number' => $modelNumber,
+                ]);
+            }
 
             // Tạo chi tiết đơn hàng
             foreach ($cartItems as $item) {
@@ -160,6 +197,14 @@ class OrderController extends Controller
 
             DB::commit();
 
+            // Load relationships để trả về
+            $order->load(['orderDetails.productVariant.product', 'orderDetails.productVariant.size', 'orderDetails.productVariant.color', 'promotion']);
+
+            // Thêm custom request nếu có
+            if ($isCustomOrder) {
+                $order->load('customRequest');
+            }
+
             // Nếu thanh toán online, tạo link thanh toán
             // if ($request->payment_method === 'momo') {
             //     // TODO: Tích hợp MoMo API
@@ -167,7 +212,7 @@ class OrderController extends Controller
             //         'success' => true,
             //         'message' => 'Đơn hàng đã được tạo',
             //         'data' => [
-            //             'order' => $order->load('orderDetails.productVariant.product'),
+            //             'order' => $order,
             //             'payment_url' => null // URL thanh toán MoMo
             //         ]
             //     ], 201);
@@ -175,9 +220,11 @@ class OrderController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Đặt hàng thành công',
+                'message' => $isCustomOrder
+                    ? 'Đặt hàng custom thành công! Chúng tôi sẽ liên hệ với bạn trong thời gian sớm nhất.'
+                    : 'Đặt hàng thành công',
                 'data' => [
-                    'order' => $order->load('orderDetails.productVariant.product')
+                    'order' => $order
                 ]
             ], 201);
         } catch (\Exception $e) {
@@ -253,6 +300,8 @@ class OrderController extends Controller
                     'message' => 'Không tìm thấy đơn hàng'
                 ], 404);
             }
+
+            CustomRequest::where('order_id', $order->id)->delete();
 
             // Chỉ cho phép hủy đơn hàng pending hoặc confirmed
             if (!in_array($order->order_status, ['pending', 'confirmed'])) {
@@ -331,6 +380,7 @@ class OrderController extends Controller
             'shipping' => Order::where('order_status', 'shipping')->count(),
             'completed' => Order::where('order_status', 'completed')->count(),
             'cancelled' => Order::where('order_status', 'cancelled')->count(),
+            'custom_orders' => Order::where('is_custom_order', true)->count(),
         ];
 
         return response()->json([
