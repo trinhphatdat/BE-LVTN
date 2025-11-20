@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Promotion;
+use Carbon\Carbon;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Storage;
 
@@ -11,6 +12,9 @@ class PromotionController extends Controller
 {
     public function index()
     {
+        Promotion::where('status', true)
+            ->where('end_date', '<', Carbon::now())
+            ->update(['status' => false]);
         $promotions = Promotion::all();
         return response()->json($promotions);
     }

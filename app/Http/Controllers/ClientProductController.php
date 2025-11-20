@@ -82,6 +82,17 @@ class ClientProductController extends Controller
         return response()->json($products);
     }
 
+    public function getMaleShirts()
+    {
+        $products = Product::where('gender', 'male')->limit(4)->get();
+        return response()->json($products);
+    }
+    public function getFemaleShirts()
+    {
+        $products = Product::where('gender', 'female')->limit(4)->get();
+        return response()->json($products);
+    }
+
     public function show($id)
     {
         $product = Product::with([

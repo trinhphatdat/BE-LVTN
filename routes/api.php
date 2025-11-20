@@ -68,6 +68,9 @@ Route::prefix('admin')->middleware([/*'auth:api', 'is_admin'*/])->group(function
 
 // Client Product
 Route::prefix('client')->group(function () {
+    Route::get('/products/male-shirts', [ClientProductController::class, 'getMaleShirts']);
+    Route::get('/products/female-shirts', [ClientProductController::class, 'getFemaleShirts']);
+
     Route::get('/products/search', [ClientProductController::class, 'search']);
     Route::get('products', [ClientProductController::class, 'index']);
     Route::get('products/{id}', [ClientProductController::class, 'show']);
