@@ -18,6 +18,7 @@ use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Http;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ProductReviewController;
 
 //API authentication
 Route::post('/register', [AuthController::class, 'register']);
@@ -75,6 +76,12 @@ Route::prefix('client')->group(function () {
     Route::get('products', [ClientProductController::class, 'index']);
     Route::get('products/{id}', [ClientProductController::class, 'show']);
 });
+
+//Comment sản phẩm
+Route::get('productReviews/{productId}', [ProductReviewController::class, 'show']);
+Route::post('productReviews', [ProductReviewController::class, 'store']);
+Route::put('productReviews/{id}', [ProductReviewController::class, 'update']);
+Route::delete('productReviews/{id}', [ProductReviewController::class, 'destroy']);
 
 // Thao tác với products phía client
 Route::get('products/category/{categoryId}', [ProductController::class, 'getByCategory']);
