@@ -23,8 +23,8 @@ class ProfileUpdateRequest extends FormRequest
     {
         $rules = [
             'fullname' => 'required|min:4',
-            // 'email' => 'required|email|unique:users,email,' . $this->user()->id,
-            // 'phone_number' => 'nullable|regex:/^0[0-9]{9,10}$/',
+            'email' => 'required|email|unique:users,email,' . $this->user()->id,
+            'phone_number' => 'nullable|regex:/^0[0-9]{9,10}$/|unique:users,phone_number,' . $this->user()->id,
         ];
         if ($this->isMethod('post')) {
             $rules['password'] = 'required|confirmed|min:6';

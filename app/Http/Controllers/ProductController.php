@@ -40,15 +40,26 @@ class ProductController extends Controller
         try {
             $product = Product::findOrFail($id);
 
-            $validated = $request->validate([
-                'brand_id' => 'required|exists:brands,id',
-                'title' => 'required|string|max:255',
-                'description' => 'nullable|string',
-                'gender' => 'required|in:male,female,unisex',
-                'material' => 'nullable|string|max:255',
-                'thumbnail' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-                'variants' => 'required|json',
-            ]);
+            $validated = $request->validate(
+                [
+                    'brand_id' => 'required',
+                    'title' => 'required|string|max:255',
+                    'description' => 'nullable|string',
+                    'gender' => 'required|in:male,female,unisex',
+                    'material' => 'nullable|string|max:255',
+                    'thumbnail' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+                    'variants' => 'required|json',
+                ],
+                [
+                    'brand_id.required' => 'Thương hiệu là bắt buộc.',
+                    'title.required' => 'Tên sản phẩm là bắt buộc.',
+                    'gender.required' => 'Loại sản phẩm là bắt buộc.',
+                    'thumbnail.image' => 'Ảnh đại diện phải là một tệp hình ảnh hợp lệ.',
+                    'thumbnail.mimes' => 'Ảnh đại diện phải có định dạng: jpeg, png, jpg, gif.',
+                    'thumbnail.max' => 'Kích thước ảnh đại diện không được vượt quá 2MB.',
+                    'variants.required' => 'Thông tin biến thể sản phẩm là bắt buộc.',
+                ]
+            );
 
             DB::beginTransaction();
 
@@ -223,15 +234,27 @@ class ProductController extends Controller
     public function store(Request $request)
     {
         try {
-            $validated = $request->validate([
-                'brand_id' => 'required|exists:brands,id',
-                'title' => 'required|string|max:255',
-                'description' => 'nullable|string',
-                'gender' => 'required|in:male,female,unisex',
-                'material' => 'nullable|string|max:255',
-                'thumbnail' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
-                'variants' => 'required|json',
-            ]);
+            $validated = $request->validate(
+                [
+                    'brand_id' => 'required',
+                    'title' => 'required|string|max:255',
+                    'description' => 'nullable|string',
+                    'gender' => 'required|in:male,female,unisex',
+                    'material' => 'nullable|string|max:255',
+                    'thumbnail' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+                    'variants' => 'required|json',
+                ],
+                [
+                    'brand_id.required' => 'Thương hiệu là bắt buộc.',
+                    'title.required' => 'Tên sản phẩm là bắt buộc.',
+                    'gender.required' => 'Loại sản phẩm là bắt buộc.',
+                    'thumbnail.required' => 'Ảnh đại diện là bắt buộc.',
+                    'thumbnail.image' => 'Ảnh đại diện phải là một tệp hình ảnh hợp lệ.',
+                    'thumbnail.mimes' => 'Ảnh đại diện phải có định dạng: jpeg, png, jpg, gif.',
+                    'thumbnail.max' => 'Kích thước ảnh đại diện không được vượt quá 2MB.',
+                    'variants.required' => 'Thông tin biến thể sản phẩm là bắt buộc.',
+                ]
+            );
 
             DB::beginTransaction();
 
