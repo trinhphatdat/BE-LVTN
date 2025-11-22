@@ -13,7 +13,19 @@ class ProductController extends Controller
 {
     public function index()
     {
-        $product = Product::with(['brand', 'productVariants.size', 'productVariants.color'])->get();
+        $product = Product::with([
+            'brand',
+            'productVariants' => function ($query) {
+                $query->where('status', 1);
+            },
+            'productVariants.size',
+            'productVariants.color'
+        ])
+            ->whereHas('productVariants', function ($query) {
+                $query->where('status', 1);
+            })
+            ->get();
+
         return response()->json($product);
     }
 
@@ -22,9 +34,13 @@ class ProductController extends Controller
         try {
             $product = Product::with([
                 'brand:id,name',
+                'productVariants' => function ($query) {
+                    $query->where('status', 1);
+                },
                 'productVariants.size:id,name',
                 'productVariants.color:id,name,hex_code'
-            ])->findOrFail($id);
+            ])
+                ->findOrFail($id);
 
             return response()->json($product, 200);
         } catch (\Exception $e) {
@@ -64,7 +80,7 @@ class ProductController extends Controller
             DB::beginTransaction();
 
             try {
-                // Upload new thumbnail if provided
+                // Xoá hình cũ thêm hình mới nếu có
                 $thumbnailPath = $product->thumbnail;
                 if ($request->hasFile('thumbnail')) {
                     if ($thumbnailPath && Storage::disk('public')->exists($thumbnailPath)) {
@@ -73,10 +89,9 @@ class ProductController extends Controller
                     $thumbnailPath = $request->file('thumbnail')->store('products/thumbnails', 'public');
                 }
 
-                // Update variants
                 $newVariants = json_decode($validated['variants'], true);
 
-                // Get existing variants
+                // lấy biến thể hiện tại + format key
                 $existingVariants = $product->productVariants->keyBy(function ($variant) {
                     return $variant->size_id . '-' . $variant->color_id;
                 });
@@ -89,23 +104,19 @@ class ProductController extends Controller
                     $key = $variantData['size_id'] . '-' . $variantData['color_id'];
                     $processedKeys[] = $key;
 
-                    // Calculate price for this variant
                     $discount = $variantData['discount'] ?? 0;
                     $price = $variantData['original_price'] - ($variantData['original_price'] * $discount / 100);
 
-                    // Collect prices and discounts for product summary
                     $allPrices[] = $price;
                     $allDiscounts[] = $discount;
 
                     $imageUrl = null;
 
-                    // Handle image upload for this variant
                     if ($request->hasFile("variant_image_{$index}")) {
                         $imageUrl = $request->file("variant_image_{$index}")->store('products/variants', 'public');
                     }
 
                     if ($existingVariants->has($key)) {
-                        // Update existing variant
                         $existingVariant = $existingVariants->get($key);
 
                         $updateData = [
@@ -116,7 +127,6 @@ class ProductController extends Controller
                             'status' => 1,
                         ];
 
-                        // If new image uploaded, delete old one and update
                         if ($imageUrl) {
                             if ($existingVariant->image_url && Storage::disk('public')->exists($existingVariant->image_url)) {
                                 Storage::disk('public')->delete($existingVariant->image_url);
@@ -126,7 +136,6 @@ class ProductController extends Controller
 
                         $existingVariant->update($updateData);
                     } else {
-                        // Create new variant
                         ProductVariant::create([
                             'product_id' => $product->id,
                             'size_id' => $variantData['size_id'],
@@ -141,20 +150,22 @@ class ProductController extends Controller
                     }
                 }
 
-                // Mark unused variants as inactive
                 foreach ($existingVariants as $key => $variant) {
                     if (!in_array($key, $processedKeys)) {
                         $variant->update(['status' => 0]);
+                        // Xoá hình của biến thể không dùng nữa
+                        // if ($variant->image_url && Storage::disk('public')->exists($variant->image_url)) {
+                        //     Storage::disk('public')->delete($variant->image_url);
+                        // }
                     }
                 }
 
-                // Calculate product summary fields
+                // Gán lại giá trị cho bảng product
                 $minPrice = min($allPrices);
                 $maxPrice = max($allPrices);
                 $maxDiscount = max($allDiscounts);
                 $hasDiscount = $maxDiscount > 0 ? 1 : 0;
 
-                // Update product with calculated fields
                 $product->update([
                     'brand_id' => $validated['brand_id'],
                     'title' => $validated['title'],
@@ -199,7 +210,7 @@ class ProductController extends Controller
             DB::beginTransaction();
 
             try {
-                // Delete all variant images
+                //Xoá hình biến thể
                 foreach ($product->productVariants as $variant) {
                     if ($variant->image_url && Storage::disk('public')->exists($variant->image_url)) {
                         Storage::disk('public')->delete($variant->image_url);
@@ -207,7 +218,7 @@ class ProductController extends Controller
                     $variant->delete();
                 }
 
-                // Delete thumbnail
+                //Xoá thumbnail ở product
                 if ($product->thumbnail && Storage::disk('public')->exists($product->thumbnail)) {
                     Storage::disk('public')->delete($product->thumbnail);
                 }
@@ -259,7 +270,6 @@ class ProductController extends Controller
             DB::beginTransaction();
 
             try {
-                // Upload thumbnail
                 $thumbnailPath = null;
                 if ($request->hasFile('thumbnail')) {
                     $thumbnailPath = $request->file('thumbnail')->store('products/thumbnails', 'public');
@@ -277,13 +287,11 @@ class ProductController extends Controller
                     $allDiscounts[] = $discount;
                 }
 
-                // Calculate product summary fields
                 $minPrice = min($allPrices);
                 $maxPrice = max($allPrices);
                 $maxDiscount = max($allDiscounts);
                 $hasDiscount = $maxDiscount > 0 ? 1 : 0;
 
-                // Create product
                 $product = Product::create([
                     'brand_id' => $validated['brand_id'],
                     'title' => $validated['title'],
@@ -298,15 +306,12 @@ class ProductController extends Controller
                     'status' => 1,
                 ]);
 
-                // Create product variants
                 foreach ($variants as $index => $variantData) {
-                    // Calculate price for this variant
                     $discount = $variantData['discount'] ?? 0;
                     $price = $variantData['original_price'] - ($variantData['original_price'] * $discount / 100);
 
                     $imageUrl = null;
 
-                    // Upload image for this variant
                     if ($request->hasFile("variant_image_{$index}")) {
                         $imageUrl = $request->file("variant_image_{$index}")->store('products/variants', 'public');
                     }

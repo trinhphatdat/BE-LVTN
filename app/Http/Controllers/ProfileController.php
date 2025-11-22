@@ -14,7 +14,7 @@ class ProfileController extends Controller
         try {
             $user = $request->user();
             if (!$user) {
-                return response()->json(['message' => 'User not found'], 404);
+                return response()->json(['message' => 'Không tìm thấy người dùng'], 404);
             }
 
             // Cập nhật thông tin cơ bản
@@ -23,7 +23,6 @@ class ProfileController extends Controller
             $user->phone_number = $request->phone_number;
             $user->address = $request->address;
 
-            // Nếu có đổi mật khẩu thì mã hóa và lưu lại
             if ($request->boolean('change_password')) {
                 $user->password = Hash::make($request->password);
             }

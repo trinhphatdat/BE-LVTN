@@ -74,7 +74,7 @@ class PromotionController extends Controller
             ], 422);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Error creating promotion',
+                'message' => 'Lỗi khi tạo khuyến mãi',
                 'error' => $e->getMessage(),
             ], 500);
         }
@@ -150,7 +150,7 @@ class PromotionController extends Controller
             ], 422);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Error updating promotion',
+                'message' => 'Lỗi khi cập nhật khuyến mãi',
                 'error' => $e->getMessage(),
             ], 500);
         }

@@ -18,7 +18,7 @@ class DashboardController extends Controller
     public function getStatistics(Request $request)
     {
         try {
-            // Tổng doanh thu (chỉ tính đơn hoàn thành)
+            // Tổng doanh thu từ đơn hàng hoàn thành
             $totalRevenue = Order::where('order_status', 'completed')
                 ->sum('total_money');
 
