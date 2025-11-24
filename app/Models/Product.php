@@ -13,7 +13,7 @@ class Product extends Model
         'title',
         'thumbnail',
         'description',
-        'gender',
+        'product_type',
         'material',
         'min_price',
         'max_price',

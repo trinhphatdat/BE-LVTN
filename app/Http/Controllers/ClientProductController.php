@@ -34,9 +34,9 @@ class ClientProductController extends Controller
             $query->where('brand_id', $request->input('brand_id'));
         }
 
-        // Lọc theo gender
-        if ($request->has('gender')) {
-            $query->where('gender', $request->input('gender'));
+        // Lọc theo product_type
+        if ($request->has('product_type')) {
+            $query->where('product_type', $request->input('product_type'));
         }
 
         // Lọc sản phẩm có discount
@@ -84,12 +84,12 @@ class ClientProductController extends Controller
 
     public function getMaleShirts()
     {
-        $products = Product::where('gender', 'male')->limit(4)->get();
+        $products = Product::where('product_type', 'male')->limit(4)->get();
         return response()->json($products);
     }
     public function getFemaleShirts()
     {
-        $products = Product::where('gender', 'female')->limit(4)->get();
+        $products = Product::where('product_type', 'female')->limit(4)->get();
         return response()->json($products);
     }
 

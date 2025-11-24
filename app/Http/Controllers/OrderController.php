@@ -240,7 +240,7 @@ class OrderController extends Controller
     /**
      * Lấy danh sách đơn hàng của user
      */
-    public function getOrders(Request $request)
+    public function getOrders()
     {
         $user = Auth::user();
 
