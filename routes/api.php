@@ -99,6 +99,7 @@ Route::get('/cart', [CartController::class, 'getCartByUser']);
 Route::apiResource('cartItems', CartItemController::class);
 Route::patch('/cartItems/increment/{id}', [CartItemController::class, 'increment']);
 Route::patch('/cartItems/decrement/{id}', [CartItemController::class, 'decrement']);
+Route::post('/cartItems/couple', [CartItemController::class, 'storeCouple']);
 
 // Orders
 Route::post('/orders/checkout', [OrderController::class, 'checkout']);
