@@ -20,6 +20,7 @@ use App\Http\Controllers\OrderController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProductReviewController;
 use App\Http\Controllers\Api\LocationController;
+use App\Http\Controllers\PaymentController;
 
 //API authentication
 Route::post('/register', [AuthController::class, 'register']);
@@ -113,3 +114,7 @@ Route::get('/provinces', [LocationController::class, 'getProvinces']);
 Route::get('/districts', [LocationController::class, 'getDistricts']);
 Route::get('/wards', [LocationController::class, 'getWards']);
 Route::post('/calculate-shipping-fee', [LocationController::class, 'calculateShippingFee']);
+
+//test payment
+Route::get('/vnpay/payment', [PaymentController::class, 'vnpay_payment']);
+Route::get('/vnpay/callback', [PaymentController::class, 'vnpay_callback'])->name('vnpay.callback');

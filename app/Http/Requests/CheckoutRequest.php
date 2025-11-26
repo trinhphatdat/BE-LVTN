@@ -27,7 +27,7 @@ class CheckoutRequest extends FormRequest
             'phone_number' => 'required|string|max:50',
             'address' => 'required|string|max:255',
             'text_note' => 'nullable|string',
-            'payment_method' => 'required|in:cod,payos,momo',
+            'payment_method' => 'required|in:cod,vnpay',
             'promotion_id' => 'nullable|exists:promotions,id',
         ];
     }

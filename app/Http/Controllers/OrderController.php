@@ -75,7 +75,6 @@ class OrderController extends Controller
                         $shippingFee = $response->json()['data']['total'];
                     }
                 } catch (\Exception $e) {
-                    // Giữ phí mặc định nếu có lỗi
                     \Log::error('Calculate shipping fee error: ' . $e->getMessage());
                 }
             }
@@ -140,6 +139,16 @@ class OrderController extends Controller
             // Tổng tiền cuối cùng
             $totalMoney = $itemsTotal + $shippingFee - $promotionDiscount;
 
+            if ($totalMoney <= 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Số tiền đơn hàng không hợp lệ'
+                ], 400);
+            }
+
+            // Làm tròn về số nguyên
+            $totalMoney = round($totalMoney);
+
             // Tạo đơn hàng
             $order = Order::create([
                 'user_id' => $user->id,
@@ -151,9 +160,9 @@ class OrderController extends Controller
                 'text_note' => $request->text_note,
                 'order_status' => 'pending',
                 'shipping_status' => 'pending',
-                'items_total' => $itemsTotal,
-                'shipping_fee' => $shippingFee,
-                'promotion_discount' => $promotionDiscount,
+                'items_total' => round($itemsTotal),
+                'shipping_fee' => round($shippingFee),
+                'promotion_discount' => round($promotionDiscount),
                 'total_money' => $totalMoney,
                 'payment_method' => $request->payment_method,
                 'payment_status' => 'unpaid',
@@ -190,6 +199,24 @@ class OrderController extends Controller
                 'promotion'
             ]);
 
+            // Nếu thanh toán VNPay, tạo link thanh toán
+            if ($request->payment_method === 'vnpay') {
+                $paymentController = new PaymentController();
+                $paymentRequest = new Request(['order_id' => $order->id]);
+                $paymentResponse = $paymentController->vnpay_payment($paymentRequest);
+                $paymentData = $paymentResponse->getData();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Đặt hàng thành công',
+                    'data' => [
+                        'order' => $order,
+                        'payment_url' => $paymentData->data->payment_url
+                    ]
+                ], 201);
+            }
+
+            // Thanh toán COD
             return response()->json([
                 'success' => true,
                 'message' => 'Đặt hàng thành công',
