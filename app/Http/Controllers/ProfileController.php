@@ -21,6 +21,9 @@ class ProfileController extends Controller
             $user->fullname = $request->fullname;
             $user->email = $request->email;
             $user->phone_number = $request->phone_number;
+            $user->province_id = $request->province_id;
+            $user->district_id = $request->district_id;
+            $user->ward_id = $request->ward_id;
             $user->address = $request->address;
 
             if ($request->boolean('change_password')) {

@@ -25,6 +25,9 @@ class CreateUserRequest extends FormRequest
             'status' => 'required',
             'role_id' => 'required',
             'fullname' => 'required|min:4',
+            'province_id' => 'required',
+            'district_id' => 'required',
+            'ward_id' => 'required',
             'email' => 'required|email|unique:users,email',
             'phone_number' => 'required|regex:/^0[0-9]{9,10}$/|unique:users,phone_number',
             'password' => 'required|confirmed|min:6',
@@ -50,6 +53,9 @@ class CreateUserRequest extends FormRequest
             'password' => 'Mật khẩu',
             'status' => 'Tình trạng',
             'role_id' => 'Vai trò',
+            'province_id' => 'Tỉnh/Thành phố',
+            'district_id' => 'Quận/Huyện',
+            'ward_id' => 'Phường/Xã',
         ];
     }
 }

@@ -86,7 +86,7 @@ class CartItemController extends Controller
             ->get();
 
         return response()->json([
-            'count' => $items->count(),
+            'count' => $items->sum('quantity'),
             'total_money' => $items->sum('total_price'),
             'data' => $items,
         ], 200);

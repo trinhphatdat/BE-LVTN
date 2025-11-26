@@ -9,6 +9,7 @@ use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\ProductVariant;
 use App\Models\Promotion;
+use App\Services\GhnService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -57,8 +58,27 @@ class OrderController extends Controller
                 return $item->price * $item->quantity;
             });
 
-            // Phí vận chuyển
-            $shippingFee = 15000;
+            // Tính phí vận chuyển từ GHN
+            $shippingFee = 15000; // Mặc định
+
+            if ($request->district_id && $request->ward_id) {
+                try {
+                    $ghnService = app(GhnService::class);
+                    $response = $ghnService->calculateShippingFee([
+                        'to_district_id' => $request->district_id,
+                        'to_ward_code' => $request->ward_id,
+                        'insurance_value' => $itemsTotal,
+                        'weight' => $cartItems->count() * 200,
+                    ]);
+
+                    if ($response->successful() && $response->json()['code'] === 200) {
+                        $shippingFee = $response->json()['data']['total'];
+                    }
+                } catch (\Exception $e) {
+                    // Giữ phí mặc định nếu có lỗi
+                    \Log::error('Calculate shipping fee error: ' . $e->getMessage());
+                }
+            }
 
             // Xử lý mã giảm giá (nếu có)
             $promotionDiscount = 0;
@@ -137,6 +157,9 @@ class OrderController extends Controller
                 'total_money' => $totalMoney,
                 'payment_method' => $request->payment_method,
                 'payment_status' => 'unpaid',
+                'province_id' => $request->province_id,
+                'district_id' => $request->district_id,
+                'ward_id' => $request->ward_id,
             ]);
 
             // Tạo chi tiết đơn hàng
