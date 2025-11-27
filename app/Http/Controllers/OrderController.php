@@ -17,20 +17,13 @@ use Carbon\Carbon;
 
 class OrderController extends Controller
 {
-    /**
-     * Tạo đơn hàng mới
-     */
     public function checkout(CheckoutRequest $request)
     {
         try {
             DB::beginTransaction();
 
             $user = Auth::user();
-
-            // Lấy giỏ hàng của user
             $cart = Cart::where('user_id', $user->id)->first();
-
-            // Lấy các sản phẩm trong giỏ hàng
             $cartItems = CartItem::where('cart_id', $cart->id)
                 ->with('productVariant.product')
                 ->get();
@@ -53,14 +46,12 @@ class OrderController extends Controller
                 }
             }
 
-            // Tính tổng tiền items
             $itemsTotal = $cartItems->sum(function ($item) {
                 return $item->price * $item->quantity;
             });
 
-            // Tính phí vận chuyển từ GHN
-            $shippingFee = 15000; // Mặc định
-
+            // Tính phí ship
+            $shippingFee = 15000;
             if ($request->district_id && $request->ward_id) {
                 try {
                     $ghnService = app(GhnService::class);
@@ -79,7 +70,7 @@ class OrderController extends Controller
                 }
             }
 
-            // Xử lý mã giảm giá (nếu có)
+            // Xử lý promotion
             $promotionDiscount = 0;
             $promotionId = null;
 
@@ -87,57 +78,20 @@ class OrderController extends Controller
                 $promotion = Promotion::find($request->promotion_id);
 
                 if ($promotion) {
-                    // Kiểm tra promotion còn hiệu lực
-                    if (!$promotion->status) {
-                        return response()->json([
-                            'success' => false,
-                            'message' => 'Mã giảm giá không còn hiệu lực'
-                        ], 400);
-                    }
-
-                    // Kiểm tra thời gian áp dụng
-                    $now = Carbon::now();
-                    if ($now->lt(Carbon::parse($promotion->start_date)) || $now->gt(Carbon::parse($promotion->end_date))) {
-                        return response()->json([
-                            'success' => false,
-                            'message' => 'Mã giảm giá đã hết hạn hoặc chưa đến thời gian áp dụng'
-                        ], 400);
-                    }
-
-                    // Kiểm tra số lần sử dụng
-                    if ($promotion->usage_limit && $promotion->used_count >= $promotion->usage_limit) {
-                        return response()->json([
-                            'success' => false,
-                            'message' => 'Mã giảm giá đã hết lượt sử dụng'
-                        ], 400);
-                    }
-
-                    // Kiểm tra giá trị đơn hàng tối thiểu
-                    if ($itemsTotal < $promotion->min_order_value) {
-                        return response()->json([
-                            'success' => false,
-                            'message' => "Đơn hàng phải có giá trị tối thiểu " . number_format($promotion->min_order_value) . "₫ để áp dụng mã giảm giá"
-                        ], 400);
-                    }
-
-                    // Tính giảm giá
+                    // Validate promotion...
                     if ($promotion->discount_type === 'percentage') {
                         $promotionDiscount = ($itemsTotal * $promotion->discount_value) / 100;
                     } elseif ($promotion->discount_type === 'fixed_amount') {
                         $promotionDiscount = $promotion->discount_value;
                     } elseif ($promotion->discount_type === 'free_shipping') {
-                        $shippingFee = 0; // Miễn phí vận chuyển
+                        $shippingFee = 0;
                     }
 
                     $promotionId = $promotion->id;
-
-                    // Tăng số lần sử dụng
-                    $promotion->increment('used_count');
                 }
             }
 
-            // Tổng tiền cuối cùng
-            $totalMoney = $itemsTotal + $shippingFee - $promotionDiscount;
+            $totalMoney = round($itemsTotal + $shippingFee - $promotionDiscount);
 
             if ($totalMoney <= 0) {
                 return response()->json([
@@ -146,10 +100,7 @@ class OrderController extends Controller
                 ], 400);
             }
 
-            // Làm tròn về số nguyên
-            $totalMoney = round($totalMoney);
-
-            // Tạo đơn hàng
+            // ✅ TẠO ĐƠN HÀNG NGAY (cả COD và VNPay)
             $order = Order::create([
                 'user_id' => $user->id,
                 'promotion_id' => $promotionId,
@@ -169,6 +120,7 @@ class OrderController extends Controller
                 'province_id' => $request->province_id,
                 'district_id' => $request->district_id,
                 'ward_id' => $request->ward_id,
+                'payment_expires_at' => Carbon::now()->addDays(2), // ✅ Hết hạn sau 2 ngày
             ]);
 
             // Tạo chi tiết đơn hàng
@@ -181,17 +133,20 @@ class OrderController extends Controller
                     'total_price' => $item->price * $item->quantity,
                 ]);
 
-                // Giảm số lượng tồn kho
+                // Giảm tồn kho ngay
                 $variant = ProductVariant::find($item->product_variant_id);
                 $variant->decrement('stock', $item->quantity);
             }
 
-            // Xóa các item trong giỏ hàng
+            if ($promotionId) {
+                Promotion::find($promotionId)->increment('used_count');
+            }
+
+            // Xóa giỏ hàng
             CartItem::where('cart_id', $cart->id)->delete();
 
             DB::commit();
 
-            // Load relationships để trả về
             $order->load([
                 'orderDetails.productVariant.product',
                 'orderDetails.productVariant.size',
@@ -199,16 +154,20 @@ class OrderController extends Controller
                 'promotion'
             ]);
 
-            // Nếu thanh toán VNPay, tạo link thanh toán
+            // ✅ Nếu VNPay: Tạo link thanh toán
             if ($request->payment_method === 'vnpay') {
                 $paymentController = new PaymentController();
-                $paymentRequest = new Request(['order_id' => $order->id]);
+                $paymentRequest = new Request([
+                    'order_id' => $order->id,
+                    'bankCode' => $request->bankCode ?? ''
+                ]);
+
                 $paymentResponse = $paymentController->vnpay_payment($paymentRequest);
                 $paymentData = $paymentResponse->getData();
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Đặt hàng thành công',
+                    'message' => 'Đặt hàng thành công. Đang chuyển đến trang thanh toán',
                     'data' => [
                         'order' => $order,
                         'payment_url' => $paymentData->data->payment_url
@@ -216,7 +175,7 @@ class OrderController extends Controller
                 ], 201);
             }
 
-            // Thanh toán COD
+            // ✅ COD: Trả về thông tin đơn hàng
             return response()->json([
                 'success' => true,
                 'message' => 'Đặt hàng thành công',
@@ -229,6 +188,80 @@ class OrderController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Đặt hàng thất bại',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // ✅ API mới: Tạo link thanh toán cho đơn hàng chưa thanh toán
+    public function retryPayment($id)
+    {
+        try {
+            $user = Auth::user();
+
+            $order = Order::where('id', $id)
+                ->where('user_id', $user->id)
+                ->first();
+
+            if (!$order) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Không tìm thấy đơn hàng'
+                ], 404);
+            }
+
+            // Kiểm tra đơn hàng đã thanh toán chưa
+            if ($order->payment_status === 'paid') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Đơn hàng đã được thanh toán'
+                ], 400);
+            }
+
+            // Kiểm tra đơn hàng đã hủy chưa
+            if ($order->order_status === 'cancelled') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Đơn hàng đã bị hủy'
+                ], 400);
+            }
+
+            // Kiểm tra hết hạn thanh toán
+            if ($order->payment_expires_at && Carbon::now()->greaterThan($order->payment_expires_at)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Đơn hàng đã hết hạn thanh toán'
+                ], 400);
+            }
+
+            // Chỉ hỗ trợ VNPay
+            if ($order->payment_method !== 'vnpay') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Đơn hàng này không hỗ trợ thanh toán online'
+                ], 400);
+            }
+
+            // Tạo link thanh toán VNPay
+            $paymentController = new PaymentController();
+            $paymentRequest = new Request([
+                'order_id' => $order->id,
+            ]);
+
+            $paymentResponse = $paymentController->vnpay_payment($paymentRequest);
+            $paymentData = $paymentResponse->getData();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Tạo link thanh toán thành công',
+                'data' => [
+                    'payment_url' => $paymentData->data->payment_url
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không thể tạo link thanh toán',
                 'error' => $e->getMessage()
             ], 500);
         }

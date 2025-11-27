@@ -28,6 +28,7 @@ class Order extends Model
         'payment_status',
         'vnpay_transaction_id',
         'paid_at',
+        'payment_expires_at',
         'shipped_at',
         'delivered_at',
         'canceled_at',

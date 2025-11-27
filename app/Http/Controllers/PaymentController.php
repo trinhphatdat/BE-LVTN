@@ -11,10 +11,17 @@ class PaymentController extends Controller
 {
     public function vnpay_payment(Request $request)
     {
-        $order_id = $request->input('order_id');
+        $orderId = $request->input('order_id');
 
-        // Lấy thông tin đơn hàng
-        $order = Order::find($order_id);
+        if (!$orderId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Thông tin đơn hàng không hợp lệ'
+            ], 400);
+        }
+
+        // ✅ Lấy thông tin đơn hàng từ database
+        $order = Order::find($orderId);
 
         if (!$order) {
             return response()->json([
@@ -41,18 +48,13 @@ class PaymentController extends Controller
         }
 
         $vnp_Amount = intval(round($totalMoney * 100));
-
         $vnp_Locale = 'vn';
         $vnp_BankCode = $request->input('bankCode', '');
 
-        //Lấy IP đúng cách và xử lý trường hợp null
         $vnp_IpAddr = $request->ip();
-
-        // Xử lý các trường hợp IP không hợp lệ
         if (!$vnp_IpAddr || $vnp_IpAddr == '' || $vnp_IpAddr == '::1' || $vnp_IpAddr == 'unknown') {
             $vnp_IpAddr = '127.0.0.1';
         }
-        // Nếu là IPv6, convert sang IPv4
         if (filter_var($vnp_IpAddr, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
             $vnp_IpAddr = '127.0.0.1';
         }
@@ -76,6 +78,8 @@ class PaymentController extends Controller
             $inputData['vnp_BankCode'] = $vnp_BankCode;
         }
 
+        Log::info('VNPay Request Data:', $inputData);
+
         ksort($inputData);
         $query = "";
         $i = 0;
@@ -96,6 +100,8 @@ class PaymentController extends Controller
             $vnp_Url .= 'vnp_SecureHash=' . $vnpSecureHash;
         }
 
+        Log::info('VNPay Payment URL:', ['url' => $vnp_Url]);
+
         return response()->json([
             'success' => true,
             'message' => 'Tạo link thanh toán thành công',
@@ -109,6 +115,8 @@ class PaymentController extends Controller
     {
         $vnp_HashSecret = "JGB6R1WTUNI4B5NO7ZST6BMPDUEQ1L9F";
         $inputData = $request->all();
+
+        Log::info('VNPay Callback Data:', $inputData);
 
         $vnp_SecureHash = $inputData['vnp_SecureHash'];
         unset($inputData['vnp_SecureHash']);
@@ -126,23 +134,20 @@ class PaymentController extends Controller
         }
 
         $secureHash = hash_hmac('sha512', $hashData, $vnp_HashSecret);
-
-        // URL frontend để redirect
         $frontendUrl = env('FRONTEND_URL', 'http://localhost:5173');
 
         if ($secureHash == $vnp_SecureHash) {
             if ($request->vnp_ResponseCode == '00') {
-                // Thanh toán thành công
                 try {
                     DB::beginTransaction();
 
-                    // Lấy order_id từ vnp_TxnRef
                     $txnRef = $request->vnp_TxnRef;
                     $orderId = explode('_', $txnRef)[0];
 
                     $order = Order::find($orderId);
 
                     if ($order) {
+                        // ✅ Cập nhật trạng thái thanh toán
                         $order->update([
                             'payment_status' => 'paid',
                             'paid_at' => now(),
@@ -160,7 +165,7 @@ class PaymentController extends Controller
                     return redirect($frontendUrl . '/payment-failed?message=' . urlencode('Có lỗi xảy ra'));
                 }
             } else {
-                // Thanh toán thất bại
+                // ❌ Thanh toán thất bại - Đơn hàng vẫn giữ nguyên
                 $txnRef = $request->vnp_TxnRef;
                 $orderId = explode('_', $txnRef)[0];
 

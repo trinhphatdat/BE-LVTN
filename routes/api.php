@@ -108,6 +108,7 @@ Route::post('/orders/checkout', [OrderController::class, 'checkout']);
 Route::get('/orders', [OrderController::class, 'getOrders']);
 Route::get('/orders/{id}', [OrderController::class, 'getOrderDetail']);
 Route::post('/orders/{id}/cancel', [OrderController::class, 'cancelOrder']);
+Route::post('/orders/{id}/retry-payment', [OrderController::class, 'retryPayment']);
 
 // Locations
 Route::get('/provinces', [LocationController::class, 'getProvinces']);
@@ -115,6 +116,5 @@ Route::get('/districts', [LocationController::class, 'getDistricts']);
 Route::get('/wards', [LocationController::class, 'getWards']);
 Route::post('/calculate-shipping-fee', [LocationController::class, 'calculateShippingFee']);
 
-//test payment
-Route::get('/vnpay/payment', [PaymentController::class, 'vnpay_payment']);
-Route::get('/vnpay/callback', [PaymentController::class, 'vnpay_callback'])->name('vnpay.callback');
+Route::post('/vnpay/payment', [PaymentController::class, 'vnpay_payment']);
+Route::get('/vnpay/callback', [PaymentController::class, 'vnpay_callback']);
