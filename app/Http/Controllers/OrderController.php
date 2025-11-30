@@ -78,7 +78,6 @@ class OrderController extends Controller
                 $promotion = Promotion::find($request->promotion_id);
 
                 if ($promotion) {
-                    // Validate promotion...
                     if ($promotion->discount_type === 'percentage') {
                         $promotionDiscount = ($itemsTotal * $promotion->discount_value) / 100;
                     } elseif ($promotion->discount_type === 'fixed_amount') {
@@ -100,7 +99,6 @@ class OrderController extends Controller
                 ], 400);
             }
 
-            // ✅ TẠO ĐƠN HÀNG NGAY (cả COD và VNPay)
             $order = Order::create([
                 'user_id' => $user->id,
                 'promotion_id' => $promotionId,
@@ -120,7 +118,7 @@ class OrderController extends Controller
                 'province_id' => $request->province_id,
                 'district_id' => $request->district_id,
                 'ward_id' => $request->ward_id,
-                'payment_expires_at' => Carbon::now()->addDays(2), // ✅ Hết hạn sau 2 ngày
+                'payment_expires_at' => Carbon::now()->addDays(2),
             ]);
 
             // Tạo chi tiết đơn hàng
@@ -133,7 +131,6 @@ class OrderController extends Controller
                     'total_price' => $item->price * $item->quantity,
                 ]);
 
-                // Giảm tồn kho ngay
                 $variant = ProductVariant::find($item->product_variant_id);
                 $variant->decrement('stock', $item->quantity);
             }
@@ -142,7 +139,6 @@ class OrderController extends Controller
                 Promotion::find($promotionId)->increment('used_count');
             }
 
-            // Xóa giỏ hàng
             CartItem::where('cart_id', $cart->id)->delete();
 
             DB::commit();
@@ -154,7 +150,6 @@ class OrderController extends Controller
                 'promotion'
             ]);
 
-            // ✅ Nếu VNPay: Tạo link thanh toán
             if ($request->payment_method === 'vnpay') {
                 $paymentController = new PaymentController();
                 $paymentRequest = new Request([
@@ -175,7 +170,6 @@ class OrderController extends Controller
                 ], 201);
             }
 
-            // ✅ COD: Trả về thông tin đơn hàng
             return response()->json([
                 'success' => true,
                 'message' => 'Đặt hàng thành công',

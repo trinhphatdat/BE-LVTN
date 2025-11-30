@@ -52,10 +52,10 @@ class GhnService
 
         $payload = [
             'service_type_id' => (int)($data['service_type_id'] ?? 2),
-            'from_district_id' => (int)config('services.ghn.from_district_id'), // Cast sang int
-            'from_ward_code' => (string)config('services.ghn.from_ward_code'), // Cast sang string
-            'to_district_id' => (int)$data['to_district_id'], // Cast sang int
-            'to_ward_code' => (string)$data['to_ward_code'], // Cast sang string
+            'from_district_id' => (int)config('services.ghn.from_district_id'),
+            'from_ward_code' => (string)config('services.ghn.from_ward_code'),
+            'to_district_id' => (int)$data['to_district_id'],
+            'to_ward_code' => (string)$data['to_ward_code'],
             'height' => (int)($data['height'] ?? 15),
             'length' => (int)($data['length'] ?? 20),
             'weight' => (int)($data['weight'] ?? 200),
@@ -76,7 +76,6 @@ class GhnService
                 'Content-Type' => 'application/json'
             ];
 
-            // Thêm ShopId nếu cần (cho API tính phí)
             if (strpos($endpoint, 'shipping-order/fee') !== false) {
                 $headers['ShopId'] = $this->shopId;
             }

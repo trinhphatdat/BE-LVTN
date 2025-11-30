@@ -35,8 +35,8 @@ return [
     ],
 
     'ghn' => [
-        'token' => env('GHN_TOKEN', '425b766f-c9fb-11f0-a272-feae5eb9f22a'),
-        'url' => env('GHN_URL', 'https://online-gateway.ghn.vn/shiip/public-api/master-data'),
+        'token' => env('GHN_TOKEN'),
+        'url' => env('GHN_URL'),
         'shop_id' => env('GHN_SHOP_ID'),
         'from_district_id' => env('GHN_FROM_DISTRICT_ID'),
         'from_ward_code' => env('GHN_FROM_WARD_CODE'),

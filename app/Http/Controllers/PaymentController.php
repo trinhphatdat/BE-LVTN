@@ -20,7 +20,6 @@ class PaymentController extends Controller
             ], 400);
         }
 
-        // ✅ Lấy thông tin đơn hàng từ database
         $order = Order::find($orderId);
 
         if (!$order) {
@@ -78,8 +77,6 @@ class PaymentController extends Controller
             $inputData['vnp_BankCode'] = $vnp_BankCode;
         }
 
-        Log::info('VNPay Request Data:', $inputData);
-
         ksort($inputData);
         $query = "";
         $i = 0;
@@ -99,8 +96,6 @@ class PaymentController extends Controller
             $vnpSecureHash = hash_hmac('sha512', $hashdata, $vnp_HashSecret);
             $vnp_Url .= 'vnp_SecureHash=' . $vnpSecureHash;
         }
-
-        Log::info('VNPay Payment URL:', ['url' => $vnp_Url]);
 
         return response()->json([
             'success' => true,
