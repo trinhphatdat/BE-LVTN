@@ -60,6 +60,9 @@ Route::prefix('admin')->middleware([/*'auth:api', 'is_admin'*/])->group(function
     Route::get('orders/{id}', [OrderController::class, 'adminGetOrderDetail']);
     Route::put('orders/{id}/status', [OrderController::class, 'adminUpdateOrderStatus']);
     Route::delete('orders/{id}', [OrderController::class, 'adminDeleteOrder']);
+    // ✅ Đồng bộ trạng thái GHN
+    Route::post('/orders/{id}/sync-ghn', [OrderController::class, 'adminSyncGhnStatus']);
+    Route::post('/orders/sync-all-ghn', [OrderController::class, 'adminSyncAllGhnStatus']);
 
     // Dashboard
     Route::get('dashboard/statistics', [DashboardController::class, 'getStatistics']);
@@ -109,8 +112,8 @@ Route::post('/promotions/check', [PromotionController::class, 'checkPromotionCod
 
 // Orders
 Route::post('/orders/checkout', [OrderController::class, 'checkout']);
-Route::get('/orders', [OrderController::class, 'getOrders']);
-Route::get('/orders/{id}', [OrderController::class, 'getOrderDetail']);
+Route::get('/orders', [OrderController::class, 'getUserOrders']);
+Route::get('/orders/{id}', [OrderController::class, 'getUserOrderDetail']);
 Route::post('/orders/{id}/cancel', [OrderController::class, 'cancelOrder']);
 Route::post('/orders/{id}/retry-payment', [OrderController::class, 'retryPayment']);
 

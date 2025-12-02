@@ -10,6 +10,7 @@ use App\Models\CartItem;
 use App\Models\ProductVariant;
 use App\Models\Promotion;
 use App\Services\GhnService;
+use App\Services\GhnSyncService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -17,184 +18,58 @@ use Carbon\Carbon;
 
 class OrderController extends Controller
 {
-    public function checkout(CheckoutRequest $request)
+    /**
+     * ✅ Lấy danh sách đơn hàng của user hiện tại
+     */
+    public function getUserOrders(Request $request)
     {
         try {
-            DB::beginTransaction();
-
             $user = Auth::user();
-            $cart = Cart::where('user_id', $user->id)->first();
-            $cartItems = CartItem::where('cart_id', $cart->id)
-                ->with('productVariant.product')
-                ->get();
 
-            if ($cartItems->isEmpty()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Giỏ hàng trống'
-                ], 400);
-            }
-
-            // Kiểm tra tồn kho
-            foreach ($cartItems as $item) {
-                $variant = $item->productVariant;
-                if ($variant->stock < $item->quantity) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => "Sản phẩm {$variant->product->title} không đủ số lượng trong kho"
-                    ], 400);
-                }
-            }
-
-            $itemsTotal = $cartItems->sum(function ($item) {
-                return $item->price * $item->quantity;
-            });
-
-            // Tính phí ship
-            $shippingFee = 15000;
-            if ($request->district_id && $request->ward_id) {
-                try {
-                    $ghnService = app(GhnService::class);
-                    $response = $ghnService->calculateShippingFee([
-                        'to_district_id' => $request->district_id,
-                        'to_ward_code' => $request->ward_id,
-                        'insurance_value' => $itemsTotal,
-                        'weight' => $cartItems->count() * 200,
-                    ]);
-
-                    if ($response->successful() && $response->json()['code'] === 200) {
-                        $shippingFee = $response->json()['data']['total'];
-                    }
-                } catch (\Exception $e) {
-                    \Log::error('Calculate shipping fee error: ' . $e->getMessage());
-                }
-            }
-
-            // Xử lý promotion
-            $promotionDiscount = 0;
-            $promotionId = null;
-
-            if ($request->promotion_id) {
-                $promotion = Promotion::find($request->promotion_id);
-
-                if ($promotion) {
-                    if ($promotion->discount_type === 'percentage') {
-                        $promotionDiscount = ($itemsTotal * $promotion->discount_value) / 100;
-                    } elseif ($promotion->discount_type === 'fixed_amount') {
-                        $promotionDiscount = $promotion->discount_value;
-                    } elseif ($promotion->discount_type === 'free_shipping') {
-                        $shippingFee = 0;
-                    }
-
-                    $promotionId = $promotion->id;
-                }
-            }
-
-            $totalMoney = round($itemsTotal + $shippingFee - $promotionDiscount);
-
-            if ($totalMoney <= 0) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Số tiền đơn hàng không hợp lệ'
-                ], 400);
-            }
-
-            $order = Order::create([
-                'user_id' => $user->id,
-                'promotion_id' => $promotionId,
-                'fullname' => $request->fullname,
-                'email' => $request->email,
-                'phone_number' => $request->phone_number,
-                'address' => $request->address,
-                'text_note' => $request->text_note,
-                'order_status' => 'pending',
-                'shipping_status' => 'pending',
-                'items_total' => round($itemsTotal),
-                'shipping_fee' => round($shippingFee),
-                'promotion_discount' => round($promotionDiscount),
-                'total_money' => $totalMoney,
-                'payment_method' => $request->payment_method,
-                'payment_status' => 'unpaid',
-                'province_id' => $request->province_id,
-                'district_id' => $request->district_id,
-                'ward_id' => $request->ward_id,
-                'payment_expires_at' => Carbon::now()->addDays(2),
-            ]);
-
-            // Tạo chi tiết đơn hàng
-            foreach ($cartItems as $item) {
-                OrderDetail::create([
-                    'order_id' => $order->id,
-                    'product_variant_id' => $item->product_variant_id,
-                    'price' => $item->price,
-                    'quantity' => $item->quantity,
-                    'total_price' => $item->price * $item->quantity,
+            $query = Order::where('user_id', $user->id)
+                ->with([
+                    'orderDetails.productVariant.product',
+                    'orderDetails.productVariant.size',
+                    'orderDetails.productVariant.color',
+                    'promotion'
                 ]);
 
-                $variant = ProductVariant::find($item->product_variant_id);
-                $variant->decrement('stock', $item->quantity);
+            // Lọc theo trạng thái nếu có
+            if ($request->has('status') && $request->status !== 'all') {
+                $query->where('order_status', $request->status);
             }
 
-            if ($promotionId) {
-                Promotion::find($promotionId)->increment('used_count');
-            }
-
-            CartItem::where('cart_id', $cart->id)->delete();
-
-            DB::commit();
-
-            $order->load([
-                'orderDetails.productVariant.product',
-                'orderDetails.productVariant.size',
-                'orderDetails.productVariant.color',
-                'promotion'
-            ]);
-
-            if ($request->payment_method === 'vnpay') {
-                $paymentController = new PaymentController();
-                $paymentRequest = new Request([
-                    'order_id' => $order->id,
-                    'bankCode' => $request->bankCode ?? ''
-                ]);
-
-                $paymentResponse = $paymentController->vnpay_payment($paymentRequest);
-                $paymentData = $paymentResponse->getData();
-
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Đặt hàng thành công. Đang chuyển đến trang thanh toán',
-                    'data' => [
-                        'order' => $order,
-                        'payment_url' => $paymentData->data->payment_url
-                    ]
-                ], 201);
-            }
+            $orders = $query->orderBy('created_at', 'desc')->get();
 
             return response()->json([
                 'success' => true,
-                'message' => 'Đặt hàng thành công',
-                'data' => [
-                    'order' => $order
-                ]
-            ], 201);
+                'data' => $orders
+            ]);
         } catch (\Exception $e) {
-            DB::rollBack();
             return response()->json([
                 'success' => false,
-                'message' => 'Đặt hàng thất bại',
+                'message' => 'Không thể tải danh sách đơn hàng',
                 'error' => $e->getMessage()
             ], 500);
         }
     }
 
-    // ✅ API mới: Tạo link thanh toán cho đơn hàng chưa thanh toán
-    public function retryPayment($id)
+    /**
+     * ✅ Lấy chi tiết đơn hàng của user
+     */
+    public function getUserOrderDetail($id)
     {
         try {
             $user = Auth::user();
 
-            $order = Order::where('id', $id)
-                ->where('user_id', $user->id)
+            $order = Order::where('user_id', $user->id)
+                ->where('id', $id)
+                ->with([
+                    'orderDetails.productVariant.product',
+                    'orderDetails.productVariant.size',
+                    'orderDetails.productVariant.color',
+                    'promotion'
+                ])
                 ->first();
 
             if (!$order) {
@@ -204,7 +79,39 @@ class OrderController extends Controller
                 ], 404);
             }
 
-            // Kiểm tra đơn hàng đã thanh toán chưa
+            return response()->json([
+                'success' => true,
+                'data' => $order
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không thể tải chi tiết đơn hàng',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * ✅ Thanh toán lại đơn hàng VNPay chưa thanh toán
+     */
+    public function retryPayment($id)
+    {
+        try {
+            $user = Auth::user();
+
+            $order = Order::where('user_id', $user->id)
+                ->where('id', $id)
+                ->first();
+
+            if (!$order) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Không tìm thấy đơn hàng'
+                ], 404);
+            }
+
+            // Kiểm tra điều kiện thanh toán lại
             if ($order->payment_status === 'paid') {
                 return response()->json([
                     'success' => false,
@@ -212,7 +119,6 @@ class OrderController extends Controller
                 ], 400);
             }
 
-            // Kiểm tra đơn hàng đã hủy chưa
             if ($order->order_status === 'cancelled') {
                 return response()->json([
                     'success' => false,
@@ -220,26 +126,26 @@ class OrderController extends Controller
                 ], 400);
             }
 
-            // Kiểm tra hết hạn thanh toán
-            if ($order->payment_expires_at && Carbon::now()->greaterThan($order->payment_expires_at)) {
+            if ($order->payment_method !== 'vnpay') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Chỉ áp dụng cho đơn hàng thanh toán qua VNPay'
+                ], 400);
+            }
+
+            // Kiểm tra hết hạn
+            if ($order->payment_expires_at && Carbon::now()->gt($order->payment_expires_at)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Đơn hàng đã hết hạn thanh toán'
                 ], 400);
             }
 
-            // Chỉ hỗ trợ VNPay
-            if ($order->payment_method !== 'vnpay') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Đơn hàng này không hỗ trợ thanh toán online'
-                ], 400);
-            }
-
-            // Tạo link thanh toán VNPay
+            // Tạo link thanh toán mới
             $paymentController = new PaymentController();
             $paymentRequest = new Request([
                 'order_id' => $order->id,
+                'bankCode' => ''
             ]);
 
             $paymentResponse = $paymentController->vnpay_payment($paymentRequest);
@@ -262,46 +168,81 @@ class OrderController extends Controller
     }
 
     /**
-     * Lấy danh sách đơn hàng của user
+     * ✅ Method riêng để tạo đơn GHN
      */
-    public function getOrders()
+    private function createGhnOrder(Order $order, $cartItems)
     {
-        $user = Auth::user();
+        try {
+            $ghnService = app(GhnService::class);
 
-        $orders = Order::where('user_id', $user->id)
-            ->with(['orderDetails.productVariant.product', 'promotion'])
-            ->orderBy('created_at', 'desc')
-            ->get();
+            // Chuẩn bị items cho GHN
+            $ghnItems = [];
+            foreach ($cartItems as $item) {
+                $ghnItems[] = [
+                    'name' => $item->productVariant->product->title,
+                    'code' => $item->productVariant->sku ?? '',
+                    'quantity' => $item->quantity,
+                    'price' => (int)$item->price,
+                    'length' => 20,
+                    'width' => 20,
+                    'height' => 5,
+                    'weight' => 200,
+                ];
+            }
 
-        return response()->json([
-            'success' => true,
-            'data' => $orders
-        ]);
-    }
+            $ghnOrderData = [
+                'client_order_code' => 'ORD' . $order->id,
+                'payment_type_id' => $order->payment_method === 'cod' ? 2 : 1,
+                'note' => $order->text_note ?? '',
+                'required_note' => 'KHONGCHOXEMHANG',
+                'to_name' => $order->fullname,
+                'to_phone' => $order->phone_number,
+                'to_address' => $order->address,
+                'to_ward_code' => $order->ward_id,
+                'to_district_id' => $order->district_id,
+                'cod_amount' => $order->payment_method === 'cod' ? (int)$order->total_money : 0,
+                'content' => 'Thời trang',
+                'weight' => count($ghnItems) * 200,
+                'length' => 30,
+                'width' => 30,
+                'height' => 20,
+                'insurance_value' => (int)$order->items_total,
+                'service_type_id' => 2,
+                'items' => $ghnItems,
+            ];
 
-    /**
-     * Lấy chi tiết đơn hàng
-     */
-    public function getOrderDetail($id)
-    {
-        $user = Auth::user();
+            $ghnResponse = $ghnService->createOrder($ghnOrderData);
 
-        $order = Order::where('id', $id)
-            ->where('user_id', $user->id)
-            ->with(['orderDetails.productVariant.product', 'promotion'])
-            ->first();
+            if ($ghnResponse->successful() && $ghnResponse->json()['code'] === 200) {
+                $ghnData = $ghnResponse->json()['data'];
 
-        if (!$order) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Không tìm thấy đơn hàng'
-            ], 404);
+                $order->update([
+                    'ghn_order_code' => $ghnData['order_code'],
+                    'ghn_sort_code' => $ghnData['sort_code'] ?? null,
+                    'ghn_expected_delivery_time' => $ghnData['expected_delivery_time'] ?? null,
+                    'ghn_total_fee' => $ghnData['total_fee'] ?? $order->shipping_fee,
+                    'order_status' => 'confirmed',
+                ]);
+
+                \Log::info('Created GHN order successfully', [
+                    'order_id' => $order->id,
+                    'ghn_order_code' => $ghnData['order_code']
+                ]);
+
+                return true;
+            } else {
+                \Log::error('Failed to create GHN order', [
+                    'order_id' => $order->id,
+                    'response' => $ghnResponse->json()
+                ]);
+                return false;
+            }
+        } catch (\Exception $e) {
+            \Log::error('GHN API Error: ' . $e->getMessage(), [
+                'order_id' => $order->id
+            ]);
+            return false;
         }
-
-        return response()->json([
-            'success' => true,
-            'data' => $order
-        ]);
     }
 
     /**
@@ -313,9 +254,9 @@ class OrderController extends Controller
             DB::beginTransaction();
 
             $user = Auth::user();
-
             $order = Order::where('id', $id)
                 ->where('user_id', $user->id)
+                ->with('orderDetails.productVariant')
                 ->first();
 
             if (!$order) {
@@ -325,7 +266,6 @@ class OrderController extends Controller
                 ], 404);
             }
 
-            // Chỉ cho phép hủy đơn hàng pending hoặc confirmed
             if (!in_array($order->order_status, ['pending', 'confirmed'])) {
                 return response()->json([
                     'success' => false,
@@ -333,13 +273,33 @@ class OrderController extends Controller
                 ], 400);
             }
 
-            // Hoàn lại số lượng tồn kho
-            foreach ($order->orderDetails as $detail) {
-                $variant = ProductVariant::find($detail->product_variant_id);
-                $variant->increment('stock', $detail->quantity);
+            // ✅ Hủy đơn hàng trên GHN (nếu có)
+            if ($order->ghn_order_code) {
+                try {
+                    $ghnService = app(GhnService::class);
+                    $ghnResponse = $ghnService->cancelOrder([$order->ghn_order_code]);
+
+                    if (!$ghnResponse->successful()) {
+                        \Log::warning('Failed to cancel GHN order', [
+                            'order_id' => $order->id,
+                            'ghn_order_code' => $order->ghn_order_code,
+                            'response' => $ghnResponse->json()
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    \Log::error('GHN cancel error: ' . $e->getMessage());
+                }
             }
 
-            // Hoàn lại số lần sử dụng mã giảm giá (nếu có)
+            // ⭐ Hoàn lại số lượng tồn kho
+            foreach ($order->orderDetails as $detail) {
+                $variant = ProductVariant::find($detail->product_variant_id);
+                if ($variant) {
+                    $variant->increment('stock', $detail->quantity);
+                }
+            }
+
+            // Hoàn lại promotion
             if ($order->promotion_id) {
                 $promotion = Promotion::find($order->promotion_id);
                 if ($promotion) {
@@ -347,10 +307,9 @@ class OrderController extends Controller
                 }
             }
 
-            // Cập nhật trạng thái
             $order->update([
                 'order_status' => 'cancelled',
-                'cancelled_at' => now()
+                'cancelled_at' => now(),
             ]);
 
             DB::commit();
@@ -374,47 +333,58 @@ class OrderController extends Controller
      */
     public function adminGetOrders(Request $request)
     {
-        $query = Order::with([
-            'user',
-            'orderDetails.productVariant.product',
-            'orderDetails.productVariant.size',
-            'orderDetails.productVariant.color',
-            'promotion'
-        ]);
+        try {
+            $query = Order::with([
+                'orderDetails.productVariant.product',
+                'orderDetails.productVariant.size',
+                'orderDetails.productVariant.color',
+                'promotion',
+                'user'
+            ]);
 
-        // Lọc theo trạng thái
-        if ($request->has('status') && $request->status !== 'all') {
-            $query->where('order_status', $request->status);
+            // Lọc theo trạng thái
+            if ($request->has('status') && $request->status !== 'all') {
+                $query->where('order_status', $request->status);
+            }
+
+            // Tìm kiếm
+            if ($request->has('search') && $request->search) {
+                $search = $request->search;
+                $query->where(function ($q) use ($search) {
+                    $q->where('id', 'like', "%{$search}%")
+                        ->orWhere('fullname', 'like', "%{$search}%")
+                        ->orWhere('phone_number', 'like', "%{$search}%")
+                        ->orWhere('ghn_order_code', 'like', "%{$search}%");
+                });
+            }
+
+            $orders = $query->orderBy('created_at', 'desc')->get();
+
+            // Tính thống kê
+            $statistics = [
+                'total' => Order::count(),
+                'pending' => Order::where('order_status', 'pending')->count(),
+                'confirmed' => Order::where('order_status', 'confirmed')->count(),
+                'processing' => Order::where('order_status', 'processing')->count(),
+                'delivering' => Order::where('order_status', 'delivering')->count(),
+                'delivered' => Order::where('order_status', 'delivered')->count(),
+                'cancelled' => Order::where('order_status', 'cancelled')->count(),
+                'returning' => Order::where('order_status', 'returning')->count(),
+                'returned' => Order::where('order_status', 'returned')->count(),
+            ];
+
+            return response()->json([
+                'success' => true,
+                'data' => $orders,
+                'statistics' => $statistics
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không thể tải danh sách đơn hàng',
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-        // Tìm kiếm
-        if ($request->has('search') && $request->search) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('id', 'like', "%{$search}%")
-                    ->orWhere('fullname', 'like', "%{$search}%")
-                    ->orWhere('phone_number', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%");
-            });
-        }
-
-        $orders = $query->orderBy('created_at', 'desc')->get();
-
-        // Thêm thông tin thống kê
-        $statistics = [
-            'total' => Order::count(),
-            'pending' => Order::where('order_status', 'pending')->count(),
-            'confirmed' => Order::where('order_status', 'confirmed')->count(),
-            'shipping' => Order::where('order_status', 'shipping')->count(),
-            'completed' => Order::where('order_status', 'completed')->count(),
-            'cancelled' => Order::where('order_status', 'cancelled')->count(),
-        ];
-
-        return response()->json([
-            'success' => true,
-            'data' => $orders,
-            'statistics' => $statistics
-        ]);
     }
 
     /**
@@ -572,6 +542,76 @@ class OrderController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Xóa đơn hàng thất bại',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+    /**
+     * Admin: Đồng bộ trạng thái đơn hàng từ GHN (thủ công)
+     */
+    public function adminSyncGhnStatus($id)
+    {
+        try {
+            $order = Order::find($id);
+
+            if (!$order) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Không tìm thấy đơn hàng'
+                ], 404);
+            }
+
+            if (!$order->ghn_order_code) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Đơn hàng chưa có mã GHN'
+                ], 400);
+            }
+
+            $ghnSyncService = app(GhnSyncService::class);
+            $result = $ghnSyncService->syncOrderStatus($order);
+
+            if ($result) {
+                $order->refresh();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Đồng bộ trạng thái thành công',
+                    'data' => $order
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Không thể đồng bộ trạng thái từ GHN'
+                ], 500);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Có lỗi xảy ra',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Admin: Đồng bộ tất cả đơn hàng đang active
+     */
+    public function adminSyncAllGhnStatus()
+    {
+        try {
+            $ghnSyncService = app(GhnSyncService::class);
+            $results = $ghnSyncService->syncAllActiveOrders();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Đồng bộ hoàn tất',
+                'data' => $results
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Có lỗi xảy ra',
                 'error' => $e->getMessage()
             ], 500);
         }

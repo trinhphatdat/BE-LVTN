@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Order;
+use App\Models\ProductVariant;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -108,66 +109,62 @@ class PaymentController extends Controller
 
     public function vnpay_callback(Request $request)
     {
-        $vnp_HashSecret = "JGB6R1WTUNI4B5NO7ZST6BMPDUEQ1L9F";
-        $inputData = $request->all();
+        $vnp_ResponseCode = $request->vnp_ResponseCode;
+        $vnp_TxnRef = $request->vnp_TxnRef; // order_id
 
-        Log::info('VNPay Callback Data:', $inputData);
+        if ($vnp_ResponseCode == '00') {
+            DB::beginTransaction();
+            try {
+                $order = Order::with('orderDetails.productVariant')->find($vnp_TxnRef);
 
-        $vnp_SecureHash = $inputData['vnp_SecureHash'];
-        unset($inputData['vnp_SecureHash']);
-        ksort($inputData);
-
-        $hashData = "";
-        $i = 0;
-        foreach ($inputData as $key => $value) {
-            if ($i == 1) {
-                $hashData .= '&' . urlencode($key) . "=" . urlencode($value);
-            } else {
-                $hashData .= urlencode($key) . "=" . urlencode($value);
-                $i = 1;
-            }
-        }
-
-        $secureHash = hash_hmac('sha512', $hashData, $vnp_HashSecret);
-        $frontendUrl = env('FRONTEND_URL', 'http://localhost:5173');
-
-        if ($secureHash == $vnp_SecureHash) {
-            if ($request->vnp_ResponseCode == '00') {
-                try {
-                    DB::beginTransaction();
-
-                    $txnRef = $request->vnp_TxnRef;
-                    $orderId = explode('_', $txnRef)[0];
-
-                    $order = Order::find($orderId);
-
-                    if ($order) {
-                        // ✅ Cập nhật trạng thái thanh toán
-                        $order->update([
-                            'payment_status' => 'paid',
-                            'paid_at' => now(),
-                            'vnpay_transaction_id' => $request->vnp_TransactionNo,
-                            'order_status' => 'confirmed'
-                        ]);
-                    }
-
-                    DB::commit();
-
-                    return redirect($frontendUrl . '/payment-success?order_id=' . $orderId);
-                } catch (\Exception $e) {
-                    DB::rollBack();
-                    Log::error('VNPay Callback Error:', ['error' => $e->getMessage()]);
-                    return redirect($frontendUrl . '/payment-failed?message=' . urlencode('Có lỗi xảy ra'));
+                if (!$order) {
+                    return redirect()->route('payment-failed')->with('error', 'Không tìm thấy đơn hàng');
                 }
-            } else {
-                // ❌ Thanh toán thất bại - Đơn hàng vẫn giữ nguyên
-                $txnRef = $request->vnp_TxnRef;
-                $orderId = explode('_', $txnRef)[0];
 
-                return redirect($frontendUrl . '/payment-failed?order_id=' . $orderId . '&message=' . urlencode('Thanh toán thất bại'));
+                // ✅ Cập nhật trạng thái thanh toán
+                $order->update([
+                    'payment_status' => 'paid',
+                    'paid_at' => now(),
+                    'vnpay_transaction_id' => $request->vnp_TransactionNo,
+                ]);
+
+                // ⭐ TẠO ĐƠN GHN SAU KHI THANH TOÁN THÀNH CÔNG
+                $cartItems = $order->orderDetails->map(function ($detail) {
+                    return (object)[
+                        'productVariant' => $detail->productVariant,
+                        'quantity' => $detail->quantity,
+                        'price' => $detail->price,
+                    ];
+                });
+
+                $orderController = new OrderController();
+                $reflection = new \ReflectionClass($orderController);
+                $method = $reflection->getMethod('createGhnOrder');
+                $method->setAccessible(true);
+                $method->invoke($orderController, $order, $cartItems);
+
+                DB::commit();
+
+                Log::info('VNPay payment successful', [
+                    'order_id' => $order->id,
+                    'transaction_id' => $request->vnp_TransactionNo,
+                    'amount' => $order->total_money,
+                ]);
+
+                return redirect()->route('payment-success')->with('success', 'Thanh toán thành công');
+            } catch (\Exception $e) {
+                DB::rollBack();
+                Log::error('VNPay callback error: ' . $e->getMessage());
+                return redirect()->route('payment-failed')->with('error', 'Có lỗi xảy ra');
             }
-        } else {
-            return redirect($frontendUrl . '/payment-failed?message=' . urlencode('Chữ ký không hợp lệ'));
         }
+
+        // ⚠️ Thanh toán thất bại - Stock vẫn giữ, đợi hủy tự động sau 2 ngày
+        Log::warning('VNPay payment failed', [
+            'order_id' => $vnp_TxnRef,
+            'response_code' => $vnp_ResponseCode,
+        ]);
+
+        return redirect()->route('payment-failed')->with('error', 'Thanh toán thất bại');
     }
 }
