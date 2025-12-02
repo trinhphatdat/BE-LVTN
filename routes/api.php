@@ -104,6 +104,9 @@ Route::patch('/cartItems/increment/{id}', [CartItemController::class, 'increment
 Route::patch('/cartItems/decrement/{id}', [CartItemController::class, 'decrement']);
 Route::post('/cartItems/couple', [CartItemController::class, 'storeCouple']);
 
+// Check Promotion
+Route::post('/promotions/check', [PromotionController::class, 'checkPromotionCode']);
+
 // Orders
 Route::post('/orders/checkout', [OrderController::class, 'checkout']);
 Route::get('/orders', [OrderController::class, 'getOrders']);

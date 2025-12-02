@@ -8,6 +8,7 @@ class Promotion extends Model
 {
     protected $table = 'promotions';
     protected $fillable = [
+        'code',
         'name',
         'url_image',
         'description',
