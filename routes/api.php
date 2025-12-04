@@ -16,7 +16,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Http;
-use App\Http\Controllers\OrderController;
+
+use App\Http\Controllers\ClientOrderController;
+use App\Http\Controllers\AdminOrderController;
+
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProductReviewController;
 use App\Http\Controllers\Api\LocationController;
@@ -56,13 +59,13 @@ Route::prefix('admin')->middleware([/*'auth:api', 'is_admin'*/])->group(function
     Route::delete('products/{product}', [ProductController::class, 'destroy']);
 
     // Orders 
-    Route::get('orders', [OrderController::class, 'adminGetOrders']);
-    Route::get('orders/{id}', [OrderController::class, 'adminGetOrderDetail']);
-    Route::put('orders/{id}/status', [OrderController::class, 'adminUpdateOrderStatus']);
-    Route::delete('orders/{id}', [OrderController::class, 'adminDeleteOrder']);
+    Route::get('orders', [AdminOrderController::class, 'adminGetOrders']);
+    Route::get('orders/{id}', [AdminOrderController::class, 'adminGetOrderDetail']);
+    Route::put('orders/{id}/status', [AdminOrderController::class, 'adminUpdateOrderStatus']);
+    Route::delete('orders/{id}', [AdminOrderController::class, 'adminDeleteOrder']);
     // ✅ Đồng bộ trạng thái GHN
-    Route::post('/orders/{id}/sync-ghn', [OrderController::class, 'adminSyncGhnStatus']);
-    Route::post('/orders/sync-all-ghn', [OrderController::class, 'adminSyncAllGhnStatus']);
+    Route::post('/orders/{id}/sync-ghn', [AdminOrderController::class, 'adminSyncGhnStatus']);
+    Route::post('/orders/sync-all-ghn', [AdminOrderController::class, 'adminSyncAllGhnStatus']);
 
     // Dashboard
     Route::get('dashboard/statistics', [DashboardController::class, 'getStatistics']);
@@ -111,11 +114,11 @@ Route::post('/cartItems/couple', [CartItemController::class, 'storeCouple']);
 Route::post('/promotions/check', [PromotionController::class, 'checkPromotionCode']);
 
 // Orders
-Route::post('/orders/checkout', [OrderController::class, 'checkout']);
-Route::get('/orders', [OrderController::class, 'getUserOrders']);
-Route::get('/orders/{id}', [OrderController::class, 'getUserOrderDetail']);
-Route::post('/orders/{id}/cancel', [OrderController::class, 'cancelOrder']);
-Route::post('/orders/{id}/retry-payment', [OrderController::class, 'retryPayment']);
+Route::post('/orders/checkout', [ClientOrderController::class, 'checkout']);
+Route::get('/orders', [ClientOrderController::class, 'getUserOrders']);
+Route::get('/orders/{id}', [ClientOrderController::class, 'getUserOrderDetail']);
+Route::post('/orders/{id}/cancel', [ClientOrderController::class, 'cancelOrder']);
+Route::post('/orders/{id}/retry-payment', [ClientOrderController::class, 'retryPayment']);
 
 // Locations
 Route::get('/provinces', [LocationController::class, 'getProvinces']);

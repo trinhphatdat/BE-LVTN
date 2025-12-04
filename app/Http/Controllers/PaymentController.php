@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Order;
-use App\Models\ProductVariant;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -31,11 +30,11 @@ class PaymentController extends Controller
         }
 
         $vnp_Url = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
-        $vnp_Returnurl = url('/api/vnpay/callback');
+        $vnp_Returnurl = url('/api/vnpay/callback'); // ← API callback URL
         $vnp_TmnCode = "XYGD1P32";
         $vnp_HashSecret = "JGB6R1WTUNI4B5NO7ZST6BMPDUEQ1L9F";
 
-        $vnp_TxnRef = $order->id . '_' . time();
+        $vnp_TxnRef = $order->id; // ⭐ Chỉ cần order_id
         $vnp_OrderInfo = "Thanh toan don hang #" . $order->id;
         $vnp_OrderType = "billpayment";
 
@@ -109,16 +108,22 @@ class PaymentController extends Controller
 
     public function vnpay_callback(Request $request)
     {
+        // ⭐ URL frontend
+        $frontendUrl = env('FRONTEND_URL', 'http://localhost:5173');
+
         $vnp_ResponseCode = $request->vnp_ResponseCode;
         $vnp_TxnRef = $request->vnp_TxnRef; // order_id
+
+        // ⭐ Parse order_id (nếu có timestamp thì loại bỏ)
+        $orderId = explode('_', $vnp_TxnRef)[0];
 
         if ($vnp_ResponseCode == '00') {
             DB::beginTransaction();
             try {
-                $order = Order::with('orderDetails.productVariant')->find($vnp_TxnRef);
+                $order = Order::with('orderDetails.productVariant')->find($orderId);
 
                 if (!$order) {
-                    return redirect()->route('payment-failed')->with('error', 'Không tìm thấy đơn hàng');
+                    return redirect("{$frontendUrl}/payment-failed?order_id={$orderId}&message=" . urlencode('Không tìm thấy đơn hàng'));
                 }
 
                 // ✅ Cập nhật trạng thái thanh toán
@@ -137,7 +142,7 @@ class PaymentController extends Controller
                     ];
                 });
 
-                $orderController = new OrderController();
+                $orderController = new ClientOrderController();
                 $reflection = new \ReflectionClass($orderController);
                 $method = $reflection->getMethod('createGhnOrder');
                 $method->setAccessible(true);
@@ -151,20 +156,24 @@ class PaymentController extends Controller
                     'amount' => $order->total_money,
                 ]);
 
-                return redirect()->route('payment-success')->with('success', 'Thanh toán thành công');
+                // ⭐ Redirect về frontend - Trang thanh toán thành công
+                return redirect("{$frontendUrl}/payment-success?order_id={$order->id}");
             } catch (\Exception $e) {
                 DB::rollBack();
                 Log::error('VNPay callback error: ' . $e->getMessage());
-                return redirect()->route('payment-failed')->with('error', 'Có lỗi xảy ra');
+
+                // ⭐ Redirect về frontend - Trang thanh toán thất bại
+                return redirect("{$frontendUrl}/payment-failed?order_id={$orderId}&message=" . urlencode('Có lỗi xảy ra khi xử lý thanh toán'));
             }
         }
 
-        // ⚠️ Thanh toán thất bại - Stock vẫn giữ, đợi hủy tự động sau 2 ngày
+        // ⚠️ Thanh toán thất bại
         Log::warning('VNPay payment failed', [
-            'order_id' => $vnp_TxnRef,
+            'order_id' => $orderId,
             'response_code' => $vnp_ResponseCode,
         ]);
 
-        return redirect()->route('payment-failed')->with('error', 'Thanh toán thất bại');
+        // ⭐ Redirect về frontend - Trang thanh toán thất bại
+        return redirect("{$frontendUrl}/payment-failed?order_id={$orderId}&message=" . urlencode('Thanh toán thất bại. Mã lỗi: ' . $vnp_ResponseCode));
     }
 }

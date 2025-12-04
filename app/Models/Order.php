@@ -22,6 +22,7 @@ class Order extends Model
         'order_status',
         'items_total',
         'shipping_fee',
+        'shipping_discount',
         'promotion_discount',
         'total_money',
         'payment_method',
@@ -62,16 +63,28 @@ class Order extends Model
     public static function mapGhnStatusToOrderStatus($ghnStatus)
     {
         return match ($ghnStatus) {
-            'ready_to_pick', 'picking' => 'confirmed',
-            'picked', 'storing', 'transporting' => 'processing',
-            'delivering' => 'delivering',
-            'delivered' => 'delivered',
+            'ready_to_pick' => 'confirmed',
+            'picking' => 'processing',
             'cancel' => 'cancelled',
-            'return', 'returning' => 'returning',
+            'money_collect_picking' => 'processing',
+            'picked' => 'processing',
+            'storing' => 'processing',
+            'transporting' => 'delivering',
+            'sorting' => 'delivering',
+            'delivering' => 'delivering',
+            'delivered' => 'delivered', // ⭐ QUAN TRỌNG - Đảm bảo có dòng này
+            'delivery_fail' => 'delivering',
+            'waiting_to_return' => 'returning',
+            'return' => 'returning',
+            'return_transporting' => 'returning',
+            'return_sorting' => 'returning',
+            'returning' => 'returning',
+            'return_fail' => 'returning',
             'returned' => 'returned',
-            'delivery_fail' => 'returning',
-            'exception' => 'cancelled',
-            default => 'pending',
+            'exception' => 'processing',
+            'damage' => 'cancelled',
+            'lost' => 'cancelled',
+            default => 'processing',
         };
     }
 
