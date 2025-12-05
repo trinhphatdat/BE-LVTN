@@ -19,7 +19,7 @@ class DashboardController extends Controller
     {
         try {
             // Tổng doanh thu từ đơn hàng hoàn thành
-            $totalRevenue = Order::where('order_status', 'completed')
+            $totalRevenue = Order::where('order_status', 'delivered')->where('payment_status', 'paid')
                 ->sum('total_money');
 
             // Tổng đơn hàng
@@ -40,13 +40,13 @@ class DashboardController extends Controller
                 ->count();
 
             // Doanh thu tháng này
-            $currentMonthRevenue = Order::where('order_status', 'completed')
+            $currentMonthRevenue = Order::where('order_status', 'delivered')->where('payment_status', 'paid')
                 ->whereYear('created_at', Carbon::now()->year)
                 ->whereMonth('created_at', Carbon::now()->month)
                 ->sum('total_money');
 
             // Doanh thu tháng trước
-            $lastMonthRevenue = Order::where('order_status', 'completed')
+            $lastMonthRevenue = Order::where('order_status', 'delivered')->where('payment_status', 'paid')
                 ->whereYear('created_at', Carbon::now()->subMonth()->year)
                 ->whereMonth('created_at', Carbon::now()->subMonth()->month)
                 ->sum('total_money');
@@ -87,7 +87,7 @@ class DashboardController extends Controller
         try {
             $year = $request->input('year', Carbon::now()->year);
 
-            $monthlyRevenue = Order::where('order_status', 'completed')
+            $monthlyRevenue = Order::where('order_status', 'delivered')->where('payment_status', 'paid')
                 ->whereYear('created_at', $year)
                 ->select(
                     DB::raw('MONTH(created_at) as month'),
@@ -134,7 +134,7 @@ class DashboardController extends Controller
                 ->join('orders', 'order_details.order_id', '=', 'orders.id')
                 ->join('product_variants', 'order_details.product_variant_id', '=', 'product_variants.id')
                 ->join('products', 'product_variants.product_id', '=', 'products.id')
-                ->where('orders.order_status', 'completed')
+                ->where('orders.order_status', 'delivered')
                 ->select(
                     'products.id',
                     'products.title',
@@ -203,7 +203,7 @@ class DashboardController extends Controller
                     'pending' => $statistics['pending'] ?? 0,
                     'confirmed' => $statistics['confirmed'] ?? 0,
                     'shipping' => $statistics['shipping'] ?? 0,
-                    'completed' => $statistics['completed'] ?? 0,
+                    'delivered' => $statistics['delivered'] ?? 0,
                     'cancelled' => $statistics['cancelled'] ?? 0,
                 ]
             ]);

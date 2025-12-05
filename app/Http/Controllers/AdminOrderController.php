@@ -14,10 +14,18 @@ use App\Services\GhnService;
 use App\Services\GhnSyncService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
 class AdminOrderController extends Controller
 {
+    protected $ghnService;
+
+    public function __construct(GhnService $ghnService)
+    {
+        $this->ghnService = $ghnService;
+    }
+
     // Lấy danh sách tất cả đơn hàng
     public function adminGetOrders(Request $request)
     {
@@ -100,13 +108,12 @@ class AdminOrderController extends Controller
     }
 
     //Cập nhật trạng thái đơn hàng
-
     public function adminUpdateOrderStatus(Request $request, $id)
     {
         try {
             $request->validate(
                 [
-                    'order_status' => 'required|in:pending,confirmed,shipping,completed,cancelled'
+                    'order_status' => 'required|in:pending,confirmed,processing,delivering,delivered,cancelled,returning,returned'
                 ],
                 [
                     'order_status.required' => 'Trạng thái đơn hàng là bắt buộc',
@@ -123,10 +130,43 @@ class AdminOrderController extends Controller
                 ], 404);
             }
 
+            // Kiểm tra xem có thể hủy đơn không (chỉ pending hoặc confirmed)
+            if ($request->order_status === 'cancelled' && !in_array($order->order_status, ['pending', 'confirmed'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Chỉ có thể hủy đơn hàng ở trạng thái "Chờ xử lý" hoặc "Đã xác nhận"'
+                ], 400);
+            }
+
             DB::beginTransaction();
 
-            // Nếu hủy đơn, hoàn lại tồn kho
+            // Nếu hủy đơn
             if ($request->order_status === 'cancelled' && $order->order_status !== 'cancelled') {
+                // Hủy đơn trên GHN nếu có mã GHN
+                if ($order->ghn_order_code) {
+                    try {
+                        $cancelResponse = $this->ghnService->cancelOrder($order->ghn_order_code);
+
+                        if ($cancelResponse->successful()) {
+                            $cancelData = $cancelResponse->json();
+
+                            if ($cancelData['code'] == 200) {
+                                Log::info("Đã hủy đơn hàng trên GHN: {$order->ghn_order_code}");
+                            } else {
+                                // Nếu GHN báo lỗi nhưng không phải lỗi nghiêm trọng, vẫn tiếp tục hủy
+                                Log::warning("GHN cancel warning: " . ($cancelData['message'] ?? 'Unknown error'));
+                            }
+                        } else {
+                            Log::error("GHN cancel failed: " . $cancelResponse->body());
+                            // Không throw exception để vẫn có thể hủy đơn trong DB
+                        }
+                    } catch (\Exception $e) {
+                        Log::error("Error cancelling order on GHN: " . $e->getMessage());
+                        // Không throw exception để vẫn có thể hủy đơn trong DB
+                    }
+                }
+
+                // Hoàn lại tồn kho
                 foreach ($order->orderDetails as $detail) {
                     $variant = ProductVariant::find($detail->product_variant_id);
                     $variant->increment('stock', $detail->quantity);
@@ -147,13 +187,16 @@ class AdminOrderController extends Controller
             $shippingStatus = match ($request->order_status) {
                 'pending' => 'pending',
                 'confirmed' => 'preparing',
-                'shipping' => 'shipping',
-                'completed' => 'delivered',
+                'processing' => 'preparing',
+                'delivering' => 'shipping',
+                'delivered' => 'delivered',
                 'cancelled' => 'failed',
+                'returning' => 'return',
+                'returned' => 'returned',
                 default => $order->shipping_status
             };
 
-            if ($request->order_status === 'completed') {
+            if ($request->order_status === 'delivered') {
                 $order->payment_status = 'paid';
                 $order->paid_at = now();
                 $order->shipped_at = now();
@@ -201,10 +244,10 @@ class AdminOrderController extends Controller
             }
 
             // Chỉ cho phép xóa đơn đã hủy hoặc hoàn thành
-            if (!in_array($order->order_status, ['cancelled', 'completed'])) {
+            if (!in_array($order->order_status, ['cancelled', 'delivered', 'returned'])) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Chỉ có thể xóa đơn hàng đã hủy hoặc hoàn thành'
+                    'message' => 'Chỉ có thể xóa đơn hàng đã hủy, đã giao hoặc đã hoàn'
                 ], 400);
             }
 

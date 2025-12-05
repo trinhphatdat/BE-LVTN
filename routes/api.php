@@ -24,6 +24,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProductReviewController;
 use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\ReturnRequestController;
 
 //API authentication
 Route::post('/register', [AuthController::class, 'register']);
@@ -73,6 +74,13 @@ Route::prefix('admin')->middleware([/*'auth:api', 'is_admin'*/])->group(function
     Route::get('dashboard/top-products', [DashboardController::class, 'getTopSellingProducts']);
     Route::get('dashboard/recent-orders', [DashboardController::class, 'getRecentOrders']);
     Route::get('dashboard/order-status', [DashboardController::class, 'getOrderStatusStatistics']);
+
+    Route::get('return-requests', [ReturnRequestController::class, 'adminGetRequests']);
+    Route::get('return-requests/{id}', [ReturnRequestController::class, 'adminGetRequestDetail']);
+    Route::post('return-requests/{id}/approve', [ReturnRequestController::class, 'adminApproveRequest']);
+    Route::post('return-requests/{id}/reject', [ReturnRequestController::class, 'adminRejectRequest']);
+    Route::post('return-requests/{id}/received', [ReturnRequestController::class, 'adminConfirmReceived']);
+    Route::post('return-requests/{id}/refund', [ReturnRequestController::class, 'adminRefund']);
 });
 
 // Client Product
@@ -128,3 +136,6 @@ Route::post('/calculate-shipping-fee', [LocationController::class, 'calculateShi
 
 Route::post('/vnpay/payment', [PaymentController::class, 'vnpay_payment']);
 Route::get('/vnpay/callback', [PaymentController::class, 'vnpay_callback']);
+
+Route::post('/return-requests', [ReturnRequestController::class, 'store']);
+Route::get('/return-requests', [ReturnRequestController::class, 'getUserRequests']);
