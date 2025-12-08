@@ -19,6 +19,7 @@ class Order extends Model
         'ward_id',
         'address',
         'text_note',
+        'text_custom_couple',
         'order_status',
         'items_total',
         'shipping_fee',

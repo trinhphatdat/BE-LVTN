@@ -111,6 +111,7 @@ class ClientOrderController extends Controller
                 'phone_number' => $request->phone_number,
                 'address' => $request->address,
                 'text_note' => $request->text_note,
+                'text_custom_couple' => $request->text_custom_couple,
                 'order_status' => 'pending',
                 'items_total' => round($itemsTotal),
                 'shipping_fee' => round($shippingFee),

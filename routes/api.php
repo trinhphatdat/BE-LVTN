@@ -25,6 +25,7 @@ use App\Http\Controllers\ProductReviewController;
 use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ReturnRequestController;
+use App\Http\Controllers\Api\ConsultationController;
 
 //API authentication
 Route::post('/register', [AuthController::class, 'register']);
@@ -139,3 +140,17 @@ Route::get('/vnpay/callback', [PaymentController::class, 'vnpay_callback']);
 
 Route::post('/return-requests', [ReturnRequestController::class, 'store']);
 Route::get('/return-requests', [ReturnRequestController::class, 'getUserRequests']);
+
+// Routes cho khách hàng (cần authentication)
+// Route::group(function () {
+//     Route::get('/consultations', [ConsultationController::class, 'index']);
+//     Route::post('/consultations', [ConsultationController::class, 'store']);
+//     Route::get('/consultations/{id}', [ConsultationController::class, 'show']);
+//     Route::post('/consultations/{id}/close', [ConsultationController::class, 'close']);
+// });
+
+// Routes cho admin/staff (cần authentication + role check)
+// Route::prefix('admin')->group(function () {
+//     Route::get('/consultations', [ConsultationController::class, 'adminIndex']);
+//     Route::post('/consultations/{id}/answer', [ConsultationController::class, 'answer']);
+// });
