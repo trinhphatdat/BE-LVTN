@@ -140,6 +140,7 @@ Route::get('/vnpay/callback', [PaymentController::class, 'vnpay_callback']);
 
 Route::post('/return-requests', [ReturnRequestController::class, 'store']);
 Route::get('/return-requests', [ReturnRequestController::class, 'getUserRequests']);
+Route::get('/return-requests/check/{orderId}', [ReturnRequestController::class, 'checkOrderHasReturnRequest']);
 
 // Routes cho khách hàng (cần authentication)
 // Route::group(function () {

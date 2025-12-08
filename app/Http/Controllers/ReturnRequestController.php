@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ReturnRequest;
 use App\Models\ReturnRequestImage;
 use App\Models\Order;
+use App\Models\ReturnRequestItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -15,18 +16,22 @@ class ReturnRequestController extends Controller
     {
         $validated = $request->validate([
             'order_id' => 'required|exists:orders,id',
+            'return_type' => 'required|in:full,partial',
             'reason' => 'required|string',
             'custom_note' => 'nullable|string',
             'bank_name' => 'required|string',
             'bank_account_number' => 'required|string',
             'bank_account_name' => 'required|string',
+            'items' => 'required|array|min:1',
+            'items.*.order_detail_id' => 'required|exists:order_details,id',
+            'items.*.quantity' => 'required|integer|min:1',
             'images' => 'required|array|min:1',
             'images.*.image' => 'required|image|max:5120',
             'images.*.description' => 'nullable|string',
         ]);
 
         // Kiểm tra đơn hàng đã được giao
-        $order = Order::find($validated['order_id']);
+        $order = Order::with('orderDetails')->find($validated['order_id']);
         if ($order->order_status !== 'delivered') {
             return response()->json([
                 'success' => false,
@@ -58,13 +63,31 @@ class ReturnRequestController extends Controller
             ], 400);
         }
 
+        // Validate số lượng trả
+        foreach ($validated['items'] as $item) {
+            $orderDetail = $order->orderDetails->firstWhere('id', $item['order_detail_id']);
+            if (!$orderDetail) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Sản phẩm không tồn tại trong đơn hàng'
+                ], 400);
+            }
+
+            if ($item['quantity'] > $orderDetail->quantity) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Số lượng trả vượt quá số lượng đã mua'
+                ], 400);
+            }
+        }
+
         DB::beginTransaction();
         try {
-            // Tạo return request - trả toàn bộ đơn hàng
+            // Tạo return request
             $returnRequest = ReturnRequest::create([
                 'order_id' => $validated['order_id'],
                 'user_id' => auth()->id(),
-                'return_type' => 'full',
+                'return_type' => $validated['return_type'],
                 'reason' => $validated['reason'],
                 'custom_note' => $validated['custom_note'] ?? null,
                 'status' => 'pending',
@@ -72,6 +95,21 @@ class ReturnRequestController extends Controller
                 'bank_account_number' => $validated['bank_account_number'],
                 'bank_account_name' => $validated['bank_account_name'],
             ]);
+
+            // Tạo return request items
+            foreach ($validated['items'] as $item) {
+                $orderDetail = $order->orderDetails->firstWhere('id', $item['order_detail_id']);
+
+                ReturnRequestItem::create([
+                    'return_request_id' => $returnRequest->id,
+                    'order_detail_id' => $item['order_detail_id'],
+                    'product_variant_id' => $orderDetail->product_variant_id,
+                    'ordered_quantity' => $orderDetail->quantity,
+                    'return_quantity' => $item['quantity'],
+                    'price' => $orderDetail->price,
+                    'refund_amount' => $orderDetail->price * $item['quantity'],
+                ]);
+            }
 
             // Upload hình ảnh
             foreach ($validated['images'] as $imageData) {
@@ -90,7 +128,7 @@ class ReturnRequestController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Gửi yêu cầu trả hàng thành công. Chúng tôi sẽ xem xét và phản hồi trong thời gian sớm nhất.',
-                'data' => $returnRequest->load('returnRequestImages')
+                'data' => $returnRequest->load(['returnRequestItems', 'returnRequestImages'])
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -99,6 +137,26 @@ class ReturnRequestController extends Controller
                 'message' => 'Có lỗi xảy ra: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    public function show($orderId)
+    {
+        $returnRequest = ReturnRequest::with(['returnRequestItems', 'returnRequestImages'])
+            ->where('order_id', $orderId)
+            ->where('user_id', auth()->id())
+            ->first();
+
+        if (!$returnRequest) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy yêu cầu trả hàng cho đơn hàng này'
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $returnRequest
+        ]);
     }
 
     // Client: Lấy danh sách yêu cầu của user
@@ -262,7 +320,7 @@ class ReturnRequestController extends Controller
         }
 
         $returnRequest->update([
-            'status' => 'completed',
+            'status' => 'refunded',
             'refund_status' => 'completed',
             'refund_amount' => $validated['refund_amount'],
             'admin_note' => $validated['admin_note'] ?? $returnRequest->admin_note,
@@ -273,6 +331,39 @@ class ReturnRequestController extends Controller
             'success' => true,
             'message' => 'Đã hoàn tiền thành công',
             'data' => $returnRequest
+        ]);
+    }
+
+    // Client: Kiểm tra xem đơn hàng đã có yêu cầu trả hàng chưa
+    public function checkOrderHasReturnRequest($orderId)
+    {
+        $order = Order::find($orderId);
+
+        if (!$order) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Đơn hàng không tồn tại'
+            ], 404);
+        }
+
+        // Kiểm tra quyền truy cập
+        if ($order->user_id !== auth()->id()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không có quyền truy cập'
+            ], 403);
+        }
+
+        // Kiểm tra đã có yêu cầu trả hàng chưa (bất kỳ trạng thái nào trừ rejected)
+        $hasReturnRequest = ReturnRequest::where('order_id', $orderId)
+            ->whereIn('status', ['pending', 'approved', 'received', 'refunded'])
+            ->exists();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'has_return_request' => $hasReturnRequest
+            ]
         ]);
     }
 }
