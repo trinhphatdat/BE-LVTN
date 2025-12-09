@@ -26,15 +26,12 @@ return [
         // Development tunnels
         'https://vht04qtx-5173.asse.devtunnels.ms',
 
-        // Production - Railway (BỎ DẤU / Ở CUỐI)
-        'fe-lvtn-production.up.railway.app',
-        'be-lvtn-production.up.railway.app',
+        // Production - Railway (PHẢI CÓ https://)
+        'https://fe-lvtn-production.up.railway.app',
+        'https://be-lvtn-production.up.railway.app',
     ],
 
-    'allowed_origins_patterns' => [
-        // Pattern cho các subdomain railway nếu cần
-        '#^https://.*\.railway\.app$#',
-    ],
+    'allowed_origins_patterns' => [],
 
     'allowed_headers' => ['*'],
 
