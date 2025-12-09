@@ -27,8 +27,8 @@ return [
         'https://vht04qtx-5173.asse.devtunnels.ms',
 
         // Production - Railway (BỎ DẤU / Ở CUỐI)
-        'https://be-lvtn-production.up.railway.app',
-        'https://fe-lvtn-production.up.railway.app',
+        'fe-lvtn-production.up.railway.app',
+        'be-lvtn-production.up.railway.app',
     ],
 
     'allowed_origins_patterns' => [
