@@ -1,7 +1,6 @@
 <?php
 
 return [
-
     /*
     |--------------------------------------------------------------------------
     | Cross-Origin Resource Sharing (CORS) Configuration
@@ -20,19 +19,28 @@ return [
     'allowed_methods' => ['*'],
 
     'allowed_origins' => [
+        // Local development
         'http://localhost:5173',
         'http://127.0.0.1:5173',
-        'https://be-lvtn-production.up.railway.app/',
+
+        // Development tunnels
+        'https://vht04qtx-5173.asse.devtunnels.ms',
+
+        // Production - Railway (BỎ DẤU / Ở CUỐI)
+        'https://be-lvtn-production.up.railway.app',
+        'https://fe-lvtn-production.up.railway.app',
     ],
 
-    'allowed_origins_patterns' => [],
+    'allowed_origins_patterns' => [
+        // Pattern cho các subdomain railway nếu cần
+        '#^https://.*\.railway\.app$#',
+    ],
 
     'allowed_headers' => ['*'],
 
-    'exposed_headers' => [],
+    'exposed_headers' => ['*'],
 
     'max_age' => 0,
 
     'supports_credentials' => true,
-
 ];
