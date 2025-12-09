@@ -139,26 +139,6 @@ class ReturnRequestController extends Controller
         }
     }
 
-    public function show($orderId)
-    {
-        $returnRequest = ReturnRequest::with(['returnRequestItems', 'returnRequestImages'])
-            ->where('order_id', $orderId)
-            ->where('user_id', auth()->id())
-            ->first();
-
-        if (!$returnRequest) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Không tìm thấy yêu cầu trả hàng cho đơn hàng này'
-            ], 404);
-        }
-
-        return response()->json([
-            'success' => true,
-            'data' => $returnRequest
-        ]);
-    }
-
     // Client: Lấy danh sách yêu cầu của user
     public function getUserRequests()
     {
@@ -179,6 +159,7 @@ class ReturnRequestController extends Controller
         $query = ReturnRequest::with([
             'user',
             'order',
+            'returnRequestItems',
             'returnRequestImages'
         ]);
 
@@ -202,6 +183,9 @@ class ReturnRequestController extends Controller
             'order.orderDetails.productVariant.product',
             'order.orderDetails.productVariant.size',
             'order.orderDetails.productVariant.color',
+            'returnRequestItems.orderDetail.productVariant.product',
+            'returnRequestItems.orderDetail.productVariant.size',
+            'returnRequestItems.orderDetail.productVariant.color',
             'returnRequestImages'
         ])->findOrFail($id);
 
