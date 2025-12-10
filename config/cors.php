@@ -25,6 +25,7 @@ return [
 
         // Development tunnels
         'https://vht04qtx-5173.asse.devtunnels.ms',
+        'https://vht04qtx-8000.asse.devtunnels.ms',
 
         // Production - Railway (PHẢI CÓ https://)
         'https://fe-lvtn-production.up.railway.app',
