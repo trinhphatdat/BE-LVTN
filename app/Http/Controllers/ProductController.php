@@ -80,7 +80,6 @@ class ProductController extends Controller
             DB::beginTransaction();
 
             try {
-                // Xoá hình cũ thêm hình mới nếu có
                 $thumbnailPath = $product->thumbnail;
                 if ($request->hasFile('thumbnail')) {
                     if ($thumbnailPath && Storage::disk('public')->exists($thumbnailPath)) {
@@ -91,19 +90,14 @@ class ProductController extends Controller
 
                 $newVariants = json_decode($validated['variants'], true);
 
-                // lấy biến thể hiện tại + format key
-                $existingVariants = $product->productVariants->keyBy(function ($variant) {
-                    return $variant->size_id . '-' . $variant->color_id;
-                });
+                // Lấy biến thể hiện tại theo ID
+                $existingVariants = $product->productVariants->keyBy('id');
 
-                $processedKeys = [];
+                $processedIds = [];
                 $allPrices = [];
                 $allDiscounts = [];
 
                 foreach ($newVariants as $index => $variantData) {
-                    $key = $variantData['size_id'] . '-' . $variantData['color_id'];
-                    $processedKeys[] = $key;
-
                     $discount = $variantData['discount'] ?? 0;
                     $price = $variantData['original_price'] - ($variantData['original_price'] * $discount / 100);
 
@@ -116,11 +110,15 @@ class ProductController extends Controller
                         $imageUrl = $request->file("variant_image_{$index}")->store('products/variants', 'public');
                     }
 
-                    if ($existingVariants->has($key)) {
-                        $existingVariant = $existingVariants->get($key);
+                    // Nếu có ID, cập nhật biến thể hiện có
+                    if (!empty($variantData['id']) && $existingVariants->has($variantData['id'])) {
+                        $existingVariant = $existingVariants->get($variantData['id']);
+                        $processedIds[] = $variantData['id'];
 
                         $updateData = [
                             'stock' => $variantData['stock'] ?? 0,
+                            'size_id' => $variantData['size_id'],
+                            'color_id' => $variantData['color_id'],
                             'original_price' => $variantData['original_price'],
                             'discount' => $discount,
                             'price' => $price,
@@ -136,6 +134,7 @@ class ProductController extends Controller
 
                         $existingVariant->update($updateData);
                     } else {
+                        // Tạo biến thể mới
                         ProductVariant::create([
                             'product_id' => $product->id,
                             'size_id' => $variantData['size_id'],
@@ -150,8 +149,8 @@ class ProductController extends Controller
                     }
                 }
 
-                foreach ($existingVariants as $key => $variant) {
-                    if (!in_array($key, $processedKeys)) {
+                foreach ($existingVariants as $variant) {
+                    if (!in_array($variant->id, $processedIds)) {
                         $variant->update(['status' => 0]);
                         // Xoá hình của biến thể không dùng nữa
                         // if ($variant->image_url && Storage::disk('public')->exists($variant->image_url)) {

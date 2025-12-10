@@ -24,6 +24,7 @@ class PromotionController extends Controller
         try {
             $request->validate(
                 [
+                    'code' => 'required',
                     'name' => 'required|string|max:255',
                     'description' => 'nullable|string',
                     'url_image' => 'required|image',
@@ -36,6 +37,7 @@ class PromotionController extends Controller
                     'status' => 'required',
                 ],
                 [
+                    'code.required' => 'Mã khuyến mãi là bắt buộc.',
                     'name.required' => 'Tên khuyến mãi là bắt buộc.',
                     'url_image.required' => 'Hình ảnh khuyến mãi là bắt buộc.',
                     'url_image.image' => 'Hình ảnh khuyến mãi phải là một tệp hình ảnh hợp lệ.',
@@ -51,6 +53,7 @@ class PromotionController extends Controller
             $path = $request->file('url_image')->store('promotions', 'public');
 
             $promotion = Promotion::create([
+                'code' => $request->code,
                 'name' => $request->name,
                 'url_image' => $path,
                 'description' => $request->description,
@@ -99,6 +102,7 @@ class PromotionController extends Controller
 
             $request->validate(
                 [
+                    'code' => 'required',
                     'name' => 'required|string|max:255',
                     'description' => 'nullable|string',
                     'url_image' => 'image',
@@ -111,6 +115,7 @@ class PromotionController extends Controller
                     'status' => 'required',
                 ],
                 [
+                    'code.required' => 'Mã khuyến mãi là bắt buộc.',
                     'name.required' => 'Tên khuyến mãi là bắt buộc.',
                     'url_image.image' => 'Hình ảnh khuyến mãi phải là một tệp hình ảnh hợp lệ.',
                     'discount_type.required' => 'Loại giảm giá là bắt buộc.',
@@ -122,6 +127,7 @@ class PromotionController extends Controller
             );
 
             $dataToUpdate = [
+                'code' => $request->code,
                 'name' => $request->name,
                 'description' => $request->description,
                 'discount_type' => $request->discount_type,
