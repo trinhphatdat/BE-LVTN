@@ -53,7 +53,7 @@ class ReturnRequestController extends Controller
 
         // Kiểm tra đã có yêu cầu chưa
         $existingRequest = ReturnRequest::where('order_id', $validated['order_id'])
-            ->whereIn('status', ['pending', 'approved', 'received'])
+            ->whereIn('status', ['pending', 'approved', 'received', 'refunded'])
             ->exists();
 
         if ($existingRequest) {
@@ -83,6 +83,24 @@ class ReturnRequestController extends Controller
 
         DB::beginTransaction();
         try {
+            // Tính tổng tiền hoàn
+            $itemsRefundTotal = 0;
+            foreach ($validated['items'] as $item) {
+                $orderDetail = $order->orderDetails->firstWhere('id', $item['order_detail_id']);
+                $itemsRefundTotal += $orderDetail->price * $item['quantity'];
+            }
+
+            // Nếu trả toàn bộ, cộng thêm phí ship
+            $estimatedRefund = $itemsRefundTotal;
+            if ($validated['return_type'] === 'full') {
+                $estimatedRefund += $order->shipping_fee;
+
+                // Nếu có giảm giá, trừ đi (vì số tiền thực tế khách đã trả)
+                if ($order->promotion_discount > 0) {
+                    $estimatedRefund -= $order->promotion_discount;
+                }
+            }
+
             // Tạo return request
             $returnRequest = ReturnRequest::create([
                 'order_id' => $validated['order_id'],
@@ -91,6 +109,8 @@ class ReturnRequestController extends Controller
                 'reason' => $validated['reason'],
                 'custom_note' => $validated['custom_note'] ?? null,
                 'status' => 'pending',
+                'refund_amount' => $estimatedRefund, // ✅ Thêm dòng này
+                'refund_status' => 'pending',
                 'bank_name' => $validated['bank_name'],
                 'bank_account_number' => $validated['bank_account_number'],
                 'bank_account_name' => $validated['bank_account_name'],
