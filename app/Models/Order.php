@@ -35,6 +35,10 @@ class Order extends Model
         'delivered_at',
         'canceled_at',
 
+        // ✅ Thêm các trường liên quan đến trả hàng
+        'refunded_amount',      // Tổng số tiền đã hoàn trả
+        'actual_revenue',       // Doanh thu thực tế sau khi trừ hoàn trả
+
         // GHN fields
         'ghn_order_code',
         'ghn_sort_code',
@@ -58,6 +62,34 @@ class Order extends Model
         'ghn_last_sync_at' => 'datetime',
     ];
 
+    // ✅ Accessor để tính doanh thu thực tế
+    public function getActualRevenueAttribute()
+    {
+        return $this->total_money - ($this->refunded_amount ?? 0);
+    }
+
+    // ✅ Relationship với return requests
+    public function returnRequests()
+    {
+        return $this->hasMany(ReturnRequest::class, 'order_id');
+    }
+
+    // ✅ Kiểm tra có return request đang active không
+    public function hasActiveReturnRequest()
+    {
+        return $this->returnRequests()
+            ->whereIn('status', ['pending', 'approved', 'received'])
+            ->exists();
+    }
+
+    // ✅ Lấy tổng số tiền đã/sẽ được hoàn trả
+    public function getTotalRefundedAmount()
+    {
+        return $this->returnRequests()
+            ->whereIn('status', ['approved', 'received', 'refunded'])
+            ->sum('refund_amount');
+    }
+
     /**
      * Mapping trạng thái GHN sang order_status
      */
@@ -73,7 +105,7 @@ class Order extends Model
             'transporting' => 'delivering',
             'sorting' => 'delivering',
             'delivering' => 'delivering',
-            'delivered' => 'delivered', // ⭐ QUAN TRỌNG - Đảm bảo có dòng này
+            'delivered' => 'delivered',
             'delivery_fail' => 'delivering',
             'waiting_to_return' => 'returning',
             'return' => 'returning',

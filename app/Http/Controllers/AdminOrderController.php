@@ -91,7 +91,9 @@ class AdminOrderController extends Controller
             'orderDetails.productVariant.product',
             'orderDetails.productVariant.size',
             'orderDetails.productVariant.color',
-            'promotion'
+            'orderDetails.returnRequestItems.returnRequest', // ✅ Thêm return request items
+            'promotion',
+            'returnRequests.returnRequestItems' // ✅ Thêm return requests
         ])->find($id);
 
         if (!$order) {

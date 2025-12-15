@@ -265,6 +265,7 @@ class ReturnRequestController extends Controller
 
         $returnRequest->update([
             'status' => 'rejected',
+            'refund_status' => 'failed',
             'admin_id' => auth()->id(),
             'admin_note' => $validated['admin_note'],
             'rejected_at' => now(),
@@ -323,19 +324,47 @@ class ReturnRequestController extends Controller
             ], 400);
         }
 
-        $returnRequest->update([
-            'status' => 'refunded',
-            'refund_status' => 'completed',
-            'refund_amount' => $validated['refund_amount'],
-            'admin_note' => $validated['admin_note'] ?? $returnRequest->admin_note,
-            'refunded_at' => now(),
-        ]);
+        DB::beginTransaction();
+        try {
+            // Cập nhật return request
+            $returnRequest->update([
+                'status' => 'refunded',
+                'refund_status' => 'completed',
+                'refund_amount' => $validated['refund_amount'],
+                'admin_note' => $validated['admin_note'] ?? $returnRequest->admin_note,
+                'refunded_at' => now(),
+            ]);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Đã hoàn tiền thành công',
-            'data' => $returnRequest
-        ]);
+            // ✅ Cập nhật tổng số tiền đã hoàn và doanh thu thực tế của order
+            $order = $returnRequest->order;
+            $totalRefunded = $order->returnRequests()
+                ->where('status', 'refunded')
+                ->sum('refund_amount');
+
+            $order->update([
+                'refunded_amount' => $totalRefunded,
+                'actual_revenue' => $order->total_money - $totalRefunded,
+            ]);
+
+            // ✅ Cập nhật payment_status nếu hoàn tiền toàn bộ
+            if ($totalRefunded >= $order->total_money) {
+                $order->update(['payment_status' => 'refunded']);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Đã hoàn tiền thành công',
+                'data' => $returnRequest->load('order')
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Có lỗi xảy ra: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     // Client: Kiểm tra xem đơn hàng đã có yêu cầu trả hàng chưa

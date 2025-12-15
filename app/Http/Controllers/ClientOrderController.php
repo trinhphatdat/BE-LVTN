@@ -236,6 +236,19 @@ class ClientOrderController extends Controller
     //Lấy chi tiết đơn hàng của user
     public function getUserOrderDetail($id)
     {
+        // $order = Order::with([
+        //     'orderDetails.productVariant.product.productImages',
+        //     'orderDetails.productVariant.size',
+        //     'orderDetails.productVariant.color',
+        //     'orderDetails.returnRequestItems.returnRequest' // ✅ Thêm dòng này
+        // ])
+        //     ->where('user_id', auth()->id())
+        //     ->findOrFail($id);
+
+        // return response()->json([
+        //     'success' => true,
+        //     'data' => $order
+        // ]);
         try {
             $user = Auth::user();
 
@@ -245,7 +258,8 @@ class ClientOrderController extends Controller
                     'orderDetails.productVariant.product',
                     'orderDetails.productVariant.size',
                     'orderDetails.productVariant.color',
-                    'promotion'
+                    'promotion',
+                    'orderDetails.returnRequestItems.returnRequest'
                 ])
                 ->first();
 
