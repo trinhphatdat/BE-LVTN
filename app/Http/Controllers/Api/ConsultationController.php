@@ -46,7 +46,7 @@ class ConsultationController extends Controller
     public function index()
     {
         $consultations = Consultation::where('user_id', Auth::id())
-            ->with('staff:id,name,email')
+            // ->with('staff:id,name,email')
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -79,7 +79,7 @@ class ConsultationController extends Controller
     // Admin/Staff lấy tất cả câu hỏi
     public function adminIndex(Request $request)
     {
-        $query = Consultation::with(['user:id,name,email', 'staff:id,name,email']);
+        $query = Consultation::with(['user:id,fullname,email']);
 
         if ($request->status) {
             $query->where('status', $request->status);

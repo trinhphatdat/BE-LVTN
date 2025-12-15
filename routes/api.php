@@ -82,6 +82,9 @@ Route::prefix('admin')->middleware([/*'auth:api', 'is_admin'*/])->group(function
     Route::post('return-requests/{id}/reject', [ReturnRequestController::class, 'adminRejectRequest']);
     Route::post('return-requests/{id}/received', [ReturnRequestController::class, 'adminConfirmReceived']);
     Route::post('return-requests/{id}/refund', [ReturnRequestController::class, 'adminRefund']);
+
+    Route::get('/consultations', [ConsultationController::class, 'adminIndex']);
+    Route::post('/consultations/{id}/answer', [ConsultationController::class, 'answer']);
 });
 
 // Client Product
@@ -140,16 +143,8 @@ Route::post('/return-requests', [ReturnRequestController::class, 'store']);
 Route::get('/return-requests', [ReturnRequestController::class, 'getUserRequests']);
 Route::get('/return-requests/check/{orderId}', [ReturnRequestController::class, 'checkOrderHasReturnRequest']);
 
-// Routes cho khách hàng (cần authentication)
-// Route::group(function () {
-//     Route::get('/consultations', [ConsultationController::class, 'index']);
-//     Route::post('/consultations', [ConsultationController::class, 'store']);
-//     Route::get('/consultations/{id}', [ConsultationController::class, 'show']);
-//     Route::post('/consultations/{id}/close', [ConsultationController::class, 'close']);
-// });
-
-// Routes cho admin/staff (cần authentication + role check)
-// Route::prefix('admin')->group(function () {
-//     Route::get('/consultations', [ConsultationController::class, 'adminIndex']);
-//     Route::post('/consultations/{id}/answer', [ConsultationController::class, 'answer']);
-// });
+// Routes cho khách hàng (consultations)
+Route::get('/consultations', [ConsultationController::class, 'index']);
+Route::post('/consultations', [ConsultationController::class, 'store']);
+Route::get('/consultations/{id}', [ConsultationController::class, 'show']);
+Route::post('/consultations/{id}/close', [ConsultationController::class, 'close']);
