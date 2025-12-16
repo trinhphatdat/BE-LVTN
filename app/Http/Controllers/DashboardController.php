@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Models\User;
 use App\Models\OrderDetail;
+use App\Models\ReturnRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -18,9 +19,15 @@ class DashboardController extends Controller
     public function getStatistics(Request $request)
     {
         try {
-            // Tổng doanh thu từ đơn hàng hoàn thành
-            $totalRevenue = Order::where('order_status', 'delivered')->where('payment_status', 'paid')
+            // ✅ Tổng doanh thu THỰC TẾ (sau khi trừ hoàn trả)
+            $totalRevenue = Order::where('order_status', 'delivered')
+                ->where('payment_status', 'paid')
                 ->sum('total_money');
+
+            $totalRefunded = Order::where('order_status', 'delivered')
+                ->sum('refunded_amount');
+
+            $actualRevenue = $totalRevenue - $totalRefunded;
 
             // Tổng đơn hàng
             $totalOrders = Order::count();
@@ -29,7 +36,7 @@ class DashboardController extends Controller
             $totalProducts = Product::count();
 
             // Tổng khách hàng
-            $totalCustomers = User::where('role_id', 2)->count(); // role_id = 2 là customer
+            $totalCustomers = User::where('role_id', 2)->count();
 
             // Đơn hàng chờ xử lý
             $pendingOrders = Order::where('order_status', 'pending')->count();
@@ -39,35 +46,61 @@ class DashboardController extends Controller
                 ->where('stock', '<', 10)
                 ->count();
 
-            // Doanh thu tháng này
-            $currentMonthRevenue = Order::where('order_status', 'delivered')->where('payment_status', 'paid')
+            // ✅ Doanh thu tháng này (thực tế)
+            $currentMonthOrders = Order::where('order_status', 'delivered')
+                ->where('payment_status', 'paid')
                 ->whereYear('created_at', Carbon::now()->year)
-                ->whereMonth('created_at', Carbon::now()->month)
-                ->sum('total_money');
+                ->whereMonth('created_at', Carbon::now()->month);
 
-            // Doanh thu tháng trước
-            $lastMonthRevenue = Order::where('order_status', 'delivered')->where('payment_status', 'paid')
+            $currentMonthRevenue = $currentMonthOrders->sum('total_money');
+            $currentMonthRefunded = $currentMonthOrders->sum('refunded_amount');
+            $actualCurrentMonthRevenue = $currentMonthRevenue - $currentMonthRefunded;
+
+            // ✅ Doanh thu tháng trước (thực tế)
+            $lastMonthOrders = Order::where('order_status', 'delivered')
+                ->where('payment_status', 'paid')
                 ->whereYear('created_at', Carbon::now()->subMonth()->year)
-                ->whereMonth('created_at', Carbon::now()->subMonth()->month)
-                ->sum('total_money');
+                ->whereMonth('created_at', Carbon::now()->subMonth()->month);
+
+            $lastMonthRevenue = $lastMonthOrders->sum('total_money');
+            $lastMonthRefunded = $lastMonthOrders->sum('refunded_amount');
+            $actualLastMonthRevenue = $lastMonthRevenue - $lastMonthRefunded;
 
             // Tính tỷ lệ tăng trưởng
             $revenueGrowth = 0;
-            if ($lastMonthRevenue > 0) {
-                $revenueGrowth = (($currentMonthRevenue - $lastMonthRevenue) / $lastMonthRevenue) * 100;
+            if ($actualLastMonthRevenue > 0) {
+                $revenueGrowth = (($actualCurrentMonthRevenue - $actualLastMonthRevenue) / $actualLastMonthRevenue) * 100;
+            } elseif ($actualCurrentMonthRevenue > 0) {
+                $revenueGrowth = 100;
             }
+
+            // ✅ Thống kê đơn trả hàng
+            $totalReturnRequests = ReturnRequest::count();
+            $pendingReturnRequests = ReturnRequest::where('status', 'pending')->count();
+            $completedReturnRequests = ReturnRequest::where('status', 'refunded')->count();
+            $totalRefundedAmount = ReturnRequest::where('status', 'refunded')->sum('refund_amount');
+
+            // ✅ Đơn hàng có hoàn trả
+            $ordersWithRefunds = Order::where('refunded_amount', '>', 0)->count();
 
             return response()->json([
                 'success' => true,
                 'data' => [
                     'totalRevenue' => $totalRevenue,
+                    'totalRefunded' => $totalRefunded,
+                    'actualRevenue' => $actualRevenue,
                     'totalOrders' => $totalOrders,
                     'totalProducts' => $totalProducts,
                     'totalCustomers' => $totalCustomers,
                     'pendingOrders' => $pendingOrders,
                     'lowStockProducts' => $lowStockProducts,
-                    'currentMonthRevenue' => $currentMonthRevenue,
+                    'currentMonthRevenue' => $actualCurrentMonthRevenue,
                     'revenueGrowth' => round($revenueGrowth, 2),
+                    'totalReturnRequests' => $totalReturnRequests,
+                    'pendingReturnRequests' => $pendingReturnRequests,
+                    'completedReturnRequests' => $completedReturnRequests,
+                    'totalRefundedAmount' => $totalRefundedAmount,
+                    'ordersWithRefunds' => $ordersWithRefunds,
                 ]
             ]);
         } catch (\Exception $e) {
@@ -80,18 +113,21 @@ class DashboardController extends Controller
     }
 
     /**
-     * Lấy doanh thu theo tháng trong năm
+     * ✅ Lấy doanh thu theo tháng trong năm (bao gồm gross/net revenue)
      */
     public function getMonthlyRevenue(Request $request)
     {
         try {
             $year = $request->input('year', Carbon::now()->year);
 
-            $monthlyRevenue = Order::where('order_status', 'delivered')->where('payment_status', 'paid')
+            $monthlyData = Order::where('order_status', 'delivered')
+                ->where('payment_status', 'paid')
                 ->whereYear('created_at', $year)
                 ->select(
                     DB::raw('MONTH(created_at) as month'),
-                    DB::raw('SUM(total_money) as revenue'),
+                    DB::raw('SUM(total_money) as gross_revenue'),
+                    DB::raw('SUM(refunded_amount) as refunded_amount'),
+                    DB::raw('SUM(total_money - COALESCE(refunded_amount, 0)) as net_revenue'),
                     DB::raw('COUNT(*) as order_count')
                 )
                 ->groupBy('month')
@@ -101,10 +137,12 @@ class DashboardController extends Controller
             // Tạo mảng đầy đủ 12 tháng
             $result = [];
             for ($i = 1; $i <= 12; $i++) {
-                $monthData = $monthlyRevenue->firstWhere('month', $i);
+                $monthData = $monthlyData->firstWhere('month', $i);
                 $result[] = [
                     'month' => 'T' . $i,
-                    'revenue' => $monthData ? (float) $monthData->revenue : 0,
+                    'gross_revenue' => $monthData ? (float) $monthData->gross_revenue : 0,
+                    'refunded_amount' => $monthData ? (float) $monthData->refunded_amount : 0,
+                    'net_revenue' => $monthData ? (float) $monthData->net_revenue : 0,
                     'order_count' => $monthData ? $monthData->order_count : 0,
                 ];
             }
@@ -202,15 +240,44 @@ class DashboardController extends Controller
                 'data' => [
                     'pending' => $statistics['pending'] ?? 0,
                     'confirmed' => $statistics['confirmed'] ?? 0,
-                    'shipping' => $statistics['shipping'] ?? 0,
+                    'processing' => $statistics['processing'] ?? 0,
+                    'delivering' => $statistics['delivering'] ?? 0,
                     'delivered' => $statistics['delivered'] ?? 0,
                     'cancelled' => $statistics['cancelled'] ?? 0,
+                    'returning' => $statistics['returning'] ?? 0,
+                    'returned' => $statistics['returned'] ?? 0,
                 ]
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Không thể lấy thống kê trạng thái đơn hàng',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * ✅ Lấy yêu cầu trả hàng gần đây
+     */
+    public function getRecentReturnRequests(Request $request)
+    {
+        try {
+            $limit = $request->input('limit', 10);
+
+            $recentReturns = ReturnRequest::with(['user', 'order'])
+                ->orderBy('created_at', 'desc')
+                ->limit($limit)
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $recentReturns
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không thể lấy yêu cầu trả hàng gần đây',
                 'error' => $e->getMessage()
             ], 500);
         }

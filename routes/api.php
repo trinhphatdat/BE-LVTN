@@ -72,9 +72,9 @@ Route::prefix('admin')->middleware([/*'auth:api', 'is_admin'*/])->group(function
     // Dashboard
     Route::get('dashboard/statistics', [DashboardController::class, 'getStatistics']);
     Route::get('dashboard/monthly-revenue', [DashboardController::class, 'getMonthlyRevenue']);
-    Route::get('dashboard/top-products', [DashboardController::class, 'getTopSellingProducts']);
+    Route::get('dashboard/top-selling-products', [DashboardController::class, 'getTopSellingProducts']);
     Route::get('dashboard/recent-orders', [DashboardController::class, 'getRecentOrders']);
-    Route::get('dashboard/order-status', [DashboardController::class, 'getOrderStatusStatistics']);
+    Route::get('dashboard/order-status-statistics', [DashboardController::class, 'getOrderStatusStatistics']);
 
     Route::get('return-requests', [ReturnRequestController::class, 'adminGetRequests']);
     Route::get('return-requests/{id}', [ReturnRequestController::class, 'adminGetRequestDetail']);
