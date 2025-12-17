@@ -4,11 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\User;
 use App\Models\OrderDetail;
 use App\Models\ReturnRequest;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class DashboardController extends Controller
@@ -42,9 +42,7 @@ class DashboardController extends Controller
             $pendingOrders = Order::where('order_status', 'pending')->count();
 
             // Sản phẩm sắp hết hàng (< 10)
-            $lowStockProducts = DB::table('product_variants')
-                ->where('stock', '<', 10)
-                ->count();
+            $lowStockProducts = ProductVariant::where('stock', '<', 10)->count();
 
             // ✅ Doanh thu tháng này (thực tế)
             $currentMonthOrders = Order::where('order_status', 'delivered')
@@ -123,13 +121,11 @@ class DashboardController extends Controller
             $monthlyData = Order::where('order_status', 'delivered')
                 ->where('payment_status', 'paid')
                 ->whereYear('created_at', $year)
-                ->select(
-                    DB::raw('MONTH(created_at) as month'),
-                    DB::raw('SUM(total_money) as gross_revenue'),
-                    DB::raw('SUM(refunded_amount) as refunded_amount'),
-                    DB::raw('SUM(total_money - COALESCE(refunded_amount, 0)) as net_revenue'),
-                    DB::raw('COUNT(*) as order_count')
-                )
+                ->selectRaw('MONTH(created_at) as month')
+                ->selectRaw('SUM(total_money) as gross_revenue')
+                ->selectRaw('SUM(refunded_amount) as refunded_amount')
+                ->selectRaw('SUM(total_money - COALESCE(refunded_amount, 0)) as net_revenue')
+                ->selectRaw('COUNT(*) as order_count')
                 ->groupBy('month')
                 ->orderBy('month')
                 ->get();
@@ -168,22 +164,27 @@ class DashboardController extends Controller
         try {
             $limit = $request->input('limit', 10);
 
-            $topProducts = DB::table('order_details')
-                ->join('orders', 'order_details.order_id', '=', 'orders.id')
-                ->join('product_variants', 'order_details.product_variant_id', '=', 'product_variants.id')
-                ->join('products', 'product_variants.product_id', '=', 'products.id')
-                ->where('orders.order_status', 'delivered')
-                ->select(
-                    'products.id',
-                    'products.title',
-                    'products.thumbnail',
-                    DB::raw('SUM(order_details.quantity) as total_sold'),
-                    DB::raw('SUM(order_details.total_price) as total_revenue')
-                )
-                ->groupBy('products.id', 'products.title', 'products.thumbnail')
+            $topProducts = OrderDetail::whereHas('order', function ($query) {
+                $query->where('order_status', 'delivered');
+            })
+                ->with(['productVariant.product'])
+                ->selectRaw('product_variant_id, SUM(quantity) as total_sold, SUM(total_price) as total_revenue')
+                ->groupBy('product_variant_id')
                 ->orderByDesc('total_sold')
                 ->limit($limit)
-                ->get();
+                ->get()
+                ->map(function ($item) {
+                    return [
+                        'id' => $item->productVariant->product->id,
+                        'title' => $item->productVariant->product->title,
+                        'thumbnail' => $item->productVariant->product->thumbnail,
+                        'total_sold' => $item->total_sold,
+                        'total_revenue' => $item->total_revenue,
+                    ];
+                })
+                ->unique('id')
+                ->values()
+                ->take($limit);
 
             return response()->json([
                 'success' => true,
@@ -230,7 +231,7 @@ class DashboardController extends Controller
     public function getOrderStatusStatistics()
     {
         try {
-            $statistics = Order::select('order_status', DB::raw('count(*) as count'))
+            $statistics = Order::selectRaw('order_status, count(*) as count')
                 ->groupBy('order_status')
                 ->get()
                 ->pluck('count', 'order_status');
@@ -278,6 +279,47 @@ class DashboardController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Không thể lấy yêu cầu trả hàng gần đây',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * ✅ Lấy danh sách chi tiết sản phẩm sắp hết hàng
+     */
+    public function getLowStockProducts(Request $request)
+    {
+        try {
+            $threshold = $request->input('threshold', 10);
+            $limit = $request->input('limit', 50);
+
+            $lowStockProducts = ProductVariant::with(['product', 'size', 'color'])
+                ->where('stock', '<', $threshold)
+                ->whereHas('product')
+                ->whereHas('size')
+                ->whereHas('color')
+                ->orderBy('stock', 'asc')
+                ->limit($limit)
+                ->get()
+                ->map(function ($variant) {
+                    return [
+                        'product_name' => $variant->product->title ?? 'N/A',
+                        'product_type' => $variant->product->product_type ?? 'N/A',
+                        'size' => $variant->size->name ?? 'N/A',
+                        'color' => $variant->color->name ?? 'N/A',
+                        'stock' => $variant->stock,
+                        'price' => $variant->price,
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'data' => $lowStockProducts
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không thể lấy danh sách sản phẩm sắp hết hàng',
                 'error' => $e->getMessage()
             ], 500);
         }

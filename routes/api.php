@@ -75,6 +75,7 @@ Route::prefix('admin')->middleware([/*'auth:api', 'is_admin'*/])->group(function
     Route::get('dashboard/top-selling-products', [DashboardController::class, 'getTopSellingProducts']);
     Route::get('dashboard/recent-orders', [DashboardController::class, 'getRecentOrders']);
     Route::get('dashboard/order-status-statistics', [DashboardController::class, 'getOrderStatusStatistics']);
+    Route::get('dashboard/low-stock-products', [DashboardController::class, 'getLowStockProducts']);
 
     Route::get('return-requests', [ReturnRequestController::class, 'adminGetRequests']);
     Route::get('return-requests/{id}', [ReturnRequestController::class, 'adminGetRequestDetail']);
