@@ -91,9 +91,9 @@ class AdminOrderController extends Controller
             'orderDetails.productVariant.product',
             'orderDetails.productVariant.size',
             'orderDetails.productVariant.color',
-            'orderDetails.returnRequestItems.returnRequest', // ✅ Thêm return request items
+            'orderDetails.returnRequestItems.returnRequest',
             'promotion',
-            'returnRequests.returnRequestItems' // ✅ Thêm return requests
+            'returnRequests.returnRequestItems'
         ])->find($id);
 
         if (!$order) {
@@ -274,8 +274,8 @@ class AdminOrderController extends Controller
             ], 500);
         }
     }
-    //Đồng bộ trạng thái đơn hàng từ GHN (thủ công)
 
+    //Đồng bộ trạng thái đơn hàng từ GHN (thủ công)
     public function adminSyncGhnStatus($id)
     {
         try {

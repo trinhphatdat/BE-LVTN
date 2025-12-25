@@ -19,7 +19,7 @@ class DashboardController extends Controller
     public function getStatistics(Request $request)
     {
         try {
-            // ✅ Tổng doanh thu THỰC TẾ (sau khi trừ hoàn trả)
+            //  Tổng doanh thu THỰC TẾ (sau khi trừ hoàn trả)
             $totalRevenue = Order::where('order_status', 'delivered')
                 ->where('payment_status', 'paid')
                 ->sum('total_money');
@@ -44,7 +44,7 @@ class DashboardController extends Controller
             // Sản phẩm sắp hết hàng (< 10)
             $lowStockProducts = ProductVariant::where('stock', '<', 10)->count();
 
-            // ✅ Doanh thu tháng này (thực tế)
+            //  Doanh thu tháng này (thực tế)
             $currentMonthOrders = Order::where('order_status', 'delivered')
                 ->where('payment_status', 'paid')
                 ->whereYear('created_at', Carbon::now()->year)
@@ -54,7 +54,7 @@ class DashboardController extends Controller
             $currentMonthRefunded = $currentMonthOrders->sum('refunded_amount');
             $actualCurrentMonthRevenue = $currentMonthRevenue - $currentMonthRefunded;
 
-            // ✅ Doanh thu tháng trước (thực tế)
+            //  Doanh thu tháng trước (thực tế)
             $lastMonthOrders = Order::where('order_status', 'delivered')
                 ->where('payment_status', 'paid')
                 ->whereYear('created_at', Carbon::now()->subMonth()->year)
@@ -72,13 +72,13 @@ class DashboardController extends Controller
                 $revenueGrowth = 100;
             }
 
-            // ✅ Thống kê đơn trả hàng
+            //  Thống kê đơn trả hàng
             $totalReturnRequests = ReturnRequest::count();
             $pendingReturnRequests = ReturnRequest::where('status', 'pending')->count();
             $completedReturnRequests = ReturnRequest::where('status', 'refunded')->count();
             $totalRefundedAmount = ReturnRequest::where('status', 'refunded')->sum('refund_amount');
 
-            // ✅ Đơn hàng có hoàn trả
+            //  Đơn hàng có hoàn trả
             $ordersWithRefunds = Order::where('refunded_amount', '>', 0)->count();
 
             return response()->json([
@@ -111,7 +111,7 @@ class DashboardController extends Controller
     }
 
     /**
-     * ✅ Lấy doanh thu theo tháng trong năm (bao gồm gross/net revenue)
+     *  Lấy doanh thu theo tháng trong năm (bao gồm gross/net revenue)
      */
     public function getMonthlyRevenue(Request $request)
     {
@@ -259,7 +259,7 @@ class DashboardController extends Controller
     }
 
     /**
-     * ✅ Lấy yêu cầu trả hàng gần đây
+     *  Lấy yêu cầu trả hàng gần đây
      */
     public function getRecentReturnRequests(Request $request)
     {
@@ -285,7 +285,7 @@ class DashboardController extends Controller
     }
 
     /**
-     * ✅ Lấy danh sách chi tiết sản phẩm sắp hết hàng
+     *  Lấy danh sách chi tiết sản phẩm sắp hết hàng
      */
     public function getLowStockProducts(Request $request)
     {

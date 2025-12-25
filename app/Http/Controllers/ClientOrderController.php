@@ -126,7 +126,7 @@ class ClientOrderController extends Controller
                 'payment_expires_at' => Carbon::now()->addDays(2),
             ]);
 
-            // ⭐ Tạo chi tiết đơn hàng + TRỪ STOCK NGAY (cả COD và VNPay)
+            //  Tạo chi tiết đơn hàng + trừ stock (cả COD và VNPay)
             foreach ($cartItems as $item) {
                 OrderDetail::create([
                     'order_id' => $order->id,
@@ -136,7 +136,7 @@ class ClientOrderController extends Controller
                     'total_price' => $item->price * $item->quantity,
                 ]);
 
-                // TRỪ STOCK NGAY
+                // Trừ stock
                 $variant = ProductVariant::find($item->product_variant_id);
                 $variant->decrement('stock', $item->quantity);
             }
@@ -145,7 +145,7 @@ class ClientOrderController extends Controller
                 Promotion::find($promotionId)->increment('used_count');
             }
 
-            // ✅ Nếu COD → Tạo đơn GHN ngay
+            // Nếu COD → Tạo đơn GHN ngay
             if ($request->payment_method === 'cod') {
                 $this->createGhnOrder($order, $cartItems);
             }
@@ -162,7 +162,7 @@ class ClientOrderController extends Controller
                 'promotion'
             ]);
 
-            // ✅ Nếu VNPay → Chuyển đến trang thanh toán
+            //  Nếu VNPay → Chuyển đến trang thanh toán
             if ($request->payment_method === 'vnpay') {
                 $paymentController = new PaymentController();
                 $paymentRequest = new Request([
@@ -236,19 +236,6 @@ class ClientOrderController extends Controller
     //Lấy chi tiết đơn hàng của user
     public function getUserOrderDetail($id)
     {
-        // $order = Order::with([
-        //     'orderDetails.productVariant.product.productImages',
-        //     'orderDetails.productVariant.size',
-        //     'orderDetails.productVariant.color',
-        //     'orderDetails.returnRequestItems.returnRequest' // ✅ Thêm dòng này
-        // ])
-        //     ->where('user_id', auth()->id())
-        //     ->findOrFail($id);
-
-        // return response()->json([
-        //     'success' => true,
-        //     'data' => $order
-        // ]);
         try {
             $user = Auth::user();
 
@@ -458,7 +445,7 @@ class ClientOrderController extends Controller
                 ], 400);
             }
 
-            // ✅ Hủy đơn hàng trên GHN (nếu có)
+            //  Hủy đơn hàng trên GHN (nếu có)
             if ($order->ghn_order_code) {
                 try {
                     $ghnService = app(GhnService::class);
@@ -476,7 +463,7 @@ class ClientOrderController extends Controller
                 }
             }
 
-            // ⭐ Hoàn lại số lượng tồn kho
+            //  Hoàn lại số lượng tồn kho
             foreach ($order->orderDetails as $detail) {
                 $variant = ProductVariant::find($detail->product_variant_id);
                 if ($variant) {

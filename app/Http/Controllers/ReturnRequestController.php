@@ -109,7 +109,7 @@ class ReturnRequestController extends Controller
                 'reason' => $validated['reason'],
                 'custom_note' => $validated['custom_note'] ?? null,
                 'status' => 'pending',
-                'refund_amount' => $estimatedRefund, // ✅ Thêm dòng này
+                'refund_amount' => $estimatedRefund,
                 'refund_status' => 'pending',
                 'bank_name' => $validated['bank_name'],
                 'bank_account_number' => $validated['bank_account_number'],
@@ -335,7 +335,7 @@ class ReturnRequestController extends Controller
                 'refunded_at' => now(),
             ]);
 
-            // ✅ Cập nhật tổng số tiền đã hoàn và doanh thu thực tế của order
+            // Cập nhật tổng số tiền đã hoàn và doanh thu thực tế của order
             $order = $returnRequest->order;
             $totalRefunded = $order->returnRequests()
                 ->where('status', 'refunded')
@@ -346,7 +346,7 @@ class ReturnRequestController extends Controller
                 'actual_revenue' => $order->total_money - $totalRefunded,
             ]);
 
-            // ✅ Cập nhật payment_status nếu hoàn tiền toàn bộ
+            // Cập nhật payment_status nếu hoàn tiền toàn bộ
             if ($totalRefunded >= $order->total_money) {
                 $order->update(['payment_status' => 'refunded']);
             }

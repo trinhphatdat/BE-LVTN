@@ -79,7 +79,7 @@ class GhnSyncService
                 $updateData['ghn_total_fee'] = $ghnData['fee']['main_service'] ?? $order->ghn_total_fee;
             }
 
-            // ✅ Mapping trạng thái GHN sang order_status
+            // Mapping trạng thái GHN sang order_status
             if (isset($ghnData['status'])) {
                 $newOrderStatus = Order::mapGhnStatusToOrderStatus($ghnData['status']);
                 $updateData['order_status'] = $newOrderStatus;

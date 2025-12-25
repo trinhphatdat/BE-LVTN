@@ -65,7 +65,7 @@ Route::prefix('admin')->middleware([/*'auth:api', 'is_admin'*/])->group(function
     Route::get('orders/{id}', [AdminOrderController::class, 'adminGetOrderDetail']);
     Route::put('orders/{id}/status', [AdminOrderController::class, 'adminUpdateOrderStatus']);
     Route::delete('orders/{id}', [AdminOrderController::class, 'adminDeleteOrder']);
-    // ✅ Đồng bộ trạng thái GHN
+    // Đồng bộ trạng thái GHN
     Route::post('/orders/{id}/sync-ghn', [AdminOrderController::class, 'adminSyncGhnStatus']);
     Route::post('/orders/sync-all-ghn', [AdminOrderController::class, 'adminSyncAllGhnStatus']);
 
