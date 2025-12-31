@@ -53,9 +53,9 @@ class CreateUserRequest extends FormRequest
             'password' => 'Mật khẩu',
             'status' => 'Tình trạng',
             'role_id' => 'Vai trò',
-            'province_id' => 'Tỉnh/Thành phố',
-            'district_id' => 'Quận/Huyện',
-            'ward_id' => 'Phường/Xã',
+            // 'province_id' => 'Tỉnh/Thành phố',
+            // 'district_id' => 'Quận/Huyện',
+            // 'ward_id' => 'Phường/Xã',
         ];
     }
 }

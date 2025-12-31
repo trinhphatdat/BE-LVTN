@@ -34,7 +34,7 @@ Route::post('/logout', [AuthController::class, 'logout']);
 Route::get('/profile', [AuthController::class, 'profile']);
 
 //API dành cho quyền admin
-Route::prefix('admin')->middleware([/*'auth:api', 'is_admin'*/])->group(function () {
+Route::prefix('admin')->middleware(['is_admin'])->group(function () {
 
     Route::get('/roles', [RoleController::class, 'index']);
     Route::post('/roles', [RoleController::class, 'store']);
@@ -52,7 +52,7 @@ Route::prefix('admin')->middleware([/*'auth:api', 'is_admin'*/])->group(function
 
     Route::apiResource('users', UserController::class);
 
-    //product
+    // Products
     Route::get('products', [ProductController::class, 'index']);
     Route::get('products/{product}', [ProductController::class, 'show']);
     // Route::get('products/all', [ProductController::class, 'all']);
@@ -65,6 +65,7 @@ Route::prefix('admin')->middleware([/*'auth:api', 'is_admin'*/])->group(function
     Route::get('orders/{id}', [AdminOrderController::class, 'adminGetOrderDetail']);
     Route::put('orders/{id}/status', [AdminOrderController::class, 'adminUpdateOrderStatus']);
     Route::delete('orders/{id}', [AdminOrderController::class, 'adminDeleteOrder']);
+
     // Đồng bộ trạng thái GHN
     Route::post('/orders/{id}/sync-ghn', [AdminOrderController::class, 'adminSyncGhnStatus']);
     Route::post('/orders/sync-all-ghn', [AdminOrderController::class, 'adminSyncAllGhnStatus']);
@@ -77,6 +78,7 @@ Route::prefix('admin')->middleware([/*'auth:api', 'is_admin'*/])->group(function
     Route::get('dashboard/order-status-statistics', [DashboardController::class, 'getOrderStatusStatistics']);
     Route::get('dashboard/low-stock-products', [DashboardController::class, 'getLowStockProducts']);
 
+    // Yêu cầu trả hàng
     Route::get('return-requests', [ReturnRequestController::class, 'adminGetRequests']);
     Route::get('return-requests/{id}', [ReturnRequestController::class, 'adminGetRequestDetail']);
     Route::post('return-requests/{id}/approve', [ReturnRequestController::class, 'adminApproveRequest']);
@@ -84,8 +86,8 @@ Route::prefix('admin')->middleware([/*'auth:api', 'is_admin'*/])->group(function
     Route::post('return-requests/{id}/received', [ReturnRequestController::class, 'adminConfirmReceived']);
     Route::post('return-requests/{id}/refund', [ReturnRequestController::class, 'adminRefund']);
 
-    Route::get('/consultations', [ConsultationController::class, 'adminIndex']);
-    Route::post('/consultations/{id}/answer', [ConsultationController::class, 'answer']);
+    // Route::get('/consultations', [ConsultationController::class, 'adminIndex']);
+    // Route::post('/consultations/{id}/answer', [ConsultationController::class, 'answer']);
 });
 
 // Client Product
@@ -95,6 +97,8 @@ Route::prefix('client')->group(function () {
     Route::get('/products/search', [ClientProductController::class, 'search']);
     Route::get('products', [ClientProductController::class, 'index']);
     Route::get('products/{id}', [ClientProductController::class, 'show']);
+
+    Route::get('promotions', [PromotionController::class, 'index']);
 });
 
 //Comment sản phẩm
@@ -121,7 +125,7 @@ Route::patch('/cartItems/increment/{id}', [CartItemController::class, 'increment
 Route::patch('/cartItems/decrement/{id}', [CartItemController::class, 'decrement']);
 Route::post('/cartItems/couple', [CartItemController::class, 'storeCouple']);
 
-// Check Promotion
+// Check khuyến mãi
 Route::post('/promotions/check', [PromotionController::class, 'checkPromotionCode']);
 
 // Orders
@@ -131,21 +135,23 @@ Route::get('/orders/{id}', [ClientOrderController::class, 'getUserOrderDetail'])
 Route::post('/orders/{id}/cancel', [ClientOrderController::class, 'cancelOrder']);
 Route::post('/orders/{id}/retry-payment', [ClientOrderController::class, 'retryPayment']);
 
-// Locations
+// Lấy api địa chỉ
 Route::get('/provinces', [LocationController::class, 'getProvinces']);
 Route::get('/districts', [LocationController::class, 'getDistricts']);
 Route::get('/wards', [LocationController::class, 'getWards']);
 Route::post('/calculate-shipping-fee', [LocationController::class, 'calculateShippingFee']);
 
+// Thanh toán VNPay
 Route::post('/vnpay/payment', [PaymentController::class, 'vnpay_payment']);
 Route::get('/vnpay/callback', [PaymentController::class, 'vnpay_callback']);
 
+// Yêu cầu trả hàng
 Route::post('/return-requests', [ReturnRequestController::class, 'store']);
 Route::get('/return-requests', [ReturnRequestController::class, 'getUserRequests']);
 Route::get('/return-requests/check/{orderId}', [ReturnRequestController::class, 'checkOrderHasReturnRequest']);
 
-// Routes cho khách hàng (consultations)
-Route::get('/consultations', [ConsultationController::class, 'index']);
-Route::post('/consultations', [ConsultationController::class, 'store']);
-Route::get('/consultations/{id}', [ConsultationController::class, 'show']);
-Route::post('/consultations/{id}/close', [ConsultationController::class, 'close']);
+// // Routes cho khách hàng (consultations)
+// Route::get('/consultations', [ConsultationController::class, 'index']);
+// Route::post('/consultations', [ConsultationController::class, 'store']);
+// Route::get('/consultations/{id}', [ConsultationController::class, 'show']);
+// Route::post('/consultations/{id}/close', [ConsultationController::class, 'close']);

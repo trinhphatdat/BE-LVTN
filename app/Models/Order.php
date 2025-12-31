@@ -35,9 +35,8 @@ class Order extends Model
         'delivered_at',
         'canceled_at',
 
-        //  Thêm các trường liên quan đến trả hàng
-        'refunded_amount',      // Tổng số tiền đã hoàn trả
-        'actual_revenue',       // Doanh thu thực tế sau khi trừ hoàn trả
+        'refunded_amount',
+        'actual_revenue',
 
         // GHN fields
         'ghn_order_code',

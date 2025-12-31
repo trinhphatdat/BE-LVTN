@@ -16,10 +16,7 @@ class IsAdmin
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // $user = auth()->user();
         $user = Auth::user();
-        // \Log::info('User:', ['user' => $user]);
-
         if (!$user || $user->role_id !== 1) {
             return response()->json(['message' => 'Bạn không có quyền truy cập'], 403);
         }
