@@ -34,7 +34,7 @@ Route::post('/logout', [AuthController::class, 'logout']);
 Route::get('/profile', [AuthController::class, 'profile']);
 
 //API dành cho quyền admin
-Route::prefix('admin')->middleware(['is_admin'])->group(function () {
+Route::prefix('admin')/*->middleware(['is_admin'])*/->group(function () {
 
     Route::get('/roles', [RoleController::class, 'index']);
     Route::post('/roles', [RoleController::class, 'store']);

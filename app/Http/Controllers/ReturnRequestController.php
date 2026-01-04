@@ -294,17 +294,51 @@ class ReturnRequestController extends Controller
             ], 400);
         }
 
-        $returnRequest->update([
-            'status' => 'received',
-            'admin_note' => $validated['admin_note'] ?? $returnRequest->admin_note,
-            'received_at' => now(),
-        ]);
+        DB::beginTransaction();
+        try {
+            // Lấy danh sách items
+            $returnRequestItems = $returnRequest->returnRequestItems()->with('productVariant')->get();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Đã xác nhận nhận hàng',
-            'data' => $returnRequest
-        ]);
+            // ✅ Check lý do trả hàng để quyết định cộng vào kho nào
+            $isDefective = $returnRequest->reason === 'defective';
+
+            foreach ($returnRequestItems as $item) {
+                $productVariant = $item->productVariant;
+
+                if ($productVariant) {
+                    $quantity = $item->return_quantity;
+
+                    if ($isDefective) {
+                        // ✅ Hàng lỗi → cộng vào kho hàng lỗi
+                        $productVariant->increment('defective_stock', $quantity);
+                    } else {
+                        // ✅ Hàng tốt (lý do khác: size, không đúng mô tả...) → cộng vào kho bình thường
+                        $productVariant->increment('stock', $quantity);
+                    }
+                }
+            }
+
+            // Cập nhật trạng thái return request
+            $returnRequest->update([
+                'status' => 'received',
+                'admin_note' => $validated['admin_note'] ?? $returnRequest->admin_note,
+                'received_at' => now(),
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Đã xác nhận nhận hàng và cập nhật kho thành công',
+                'data' => $returnRequest
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Có lỗi xảy ra: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     // Admin: Hoàn tiền

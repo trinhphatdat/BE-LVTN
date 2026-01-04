@@ -59,7 +59,7 @@ class ProductController extends Controller
             $validated = $request->validate(
                 [
                     'brand_id' => 'required',
-                    'title' => 'required|string|max:255',
+                    'title' => 'required|string|max:255|unique:products,title' . $product->id,
                     'description' => 'nullable|string',
                     'product_type' => 'required|in:male,female,couple',
                     'material' => 'nullable|string|max:255',
@@ -69,6 +69,7 @@ class ProductController extends Controller
                 [
                     'brand_id.required' => 'Thương hiệu là bắt buộc.',
                     'title.required' => 'Tên sản phẩm là bắt buộc.',
+                    'title.unique' => 'Tên sản phẩm đã tồn tại trong hệ thống.',
                     'product_type.required' => 'Loại sản phẩm là bắt buộc.',
                     'thumbnail.image' => 'Ảnh đại diện phải là một tệp hình ảnh hợp lệ.',
                     'thumbnail.mimes' => 'Ảnh đại diện phải có định dạng: jpeg, png, jpg, gif.',
@@ -205,10 +206,12 @@ class ProductController extends Controller
     {
         try {
             $product = Product::findOrFail($id);
+            $productVariants = ProductVariant::where('product_id', $product->id)->get();
+
 
             DB::beginTransaction();
-
             try {
+
                 //Xoá hình biến thể
                 foreach ($product->productVariants as $variant) {
                     if ($variant->image_url && Storage::disk('public')->exists($variant->image_url)) {
@@ -247,7 +250,7 @@ class ProductController extends Controller
             $validated = $request->validate(
                 [
                     'brand_id' => 'required',
-                    'title' => 'required|string|max:255',
+                    'title' => 'required|string|max:255|unique:products,title',
                     'description' => 'nullable|string',
                     'product_type' => 'required|in:male,female,couple',
                     'material' => 'nullable|string|max:255',
@@ -257,6 +260,7 @@ class ProductController extends Controller
                 [
                     'brand_id.required' => 'Thương hiệu là bắt buộc.',
                     'title.required' => 'Tên sản phẩm là bắt buộc.',
+                    'title.unique' => 'Tên sản phẩm đã tồn tại.',
                     'product_type.required' => 'Loại sản phẩm là bắt buộc.',
                     'thumbnail.required' => 'Ảnh đại diện là bắt buộc.',
                     'thumbnail.image' => 'Ảnh đại diện phải là một tệp hình ảnh hợp lệ.',
