@@ -19,6 +19,18 @@ class PromotionController extends Controller
         return response()->json($promotions);
     }
 
+    public function home()
+    {
+        Promotion::where('status', true)
+            ->where('end_date', '<', Carbon::now())
+            ->update(['status' => false]);
+        $promotions = Promotion::where('status', true)
+            ->where('start_date', '<=', Carbon::now())
+            ->where('end_date', '>=', Carbon::now())
+            ->get();
+        return response()->json($promotions);
+    }
+
     public function store(Request $request)
     {
         try {

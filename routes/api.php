@@ -72,6 +72,7 @@ Route::prefix('admin')/*->middleware(['is_admin'])*/->group(function () {
 
     // Dashboard
     Route::get('dashboard/statistics', [DashboardController::class, 'getStatistics']);
+    Route::get('dashboard/dynamic-revenue', [DashboardController::class, 'getDynamicRevenue']); // ✨ THÊM DÒNG NÀY
     Route::get('dashboard/monthly-revenue', [DashboardController::class, 'getMonthlyRevenue']);
     Route::get('dashboard/top-selling-products', [DashboardController::class, 'getTopSellingProducts']);
     Route::get('dashboard/recent-orders', [DashboardController::class, 'getRecentOrders']);
@@ -98,7 +99,7 @@ Route::prefix('client')->group(function () {
     Route::get('products', [ClientProductController::class, 'index']);
     Route::get('products/{id}', [ClientProductController::class, 'show']);
 
-    Route::get('promotions', [PromotionController::class, 'index']);
+    Route::get('promotions', [PromotionController::class, 'home']);
 });
 
 //Comment sản phẩm
