@@ -77,7 +77,7 @@ class ClientProductController extends Controller
             $query->orderBy('created_at', 'desc');
         }
 
-        $products = $query->paginate(12);
+        $products = $query->paginate(4);
 
         return response()->json($products);
     }

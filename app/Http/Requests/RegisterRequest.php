@@ -25,9 +25,6 @@ class RegisterRequest extends FormRequest
             'fullname' => 'required|min:4',
             'email' => 'required|email|unique:users,email',
             'phone_number' => 'required|regex:/^0[0-9]{9,10}$/|unique:users,phone_number',
-            'province_id' => 'required',
-            'district_id' => 'required',
-            'ward_id' => 'required',
             'address' => 'required',
             'password' => 'required|confirmed|min:6',
         ];
@@ -49,9 +46,6 @@ class RegisterRequest extends FormRequest
             'fullname' => 'Tên người dùng',
             'email' => 'Email',
             'phone_number' => 'Số điện thoại',
-            'province_id' => 'Tỉnh/Thành phố',
-            'district_id' => 'Quận/Huyện',
-            'ward_id' => 'Phường/Xã',
             'address' => 'Địa chỉ',
             'password' => 'Mật khẩu',
         ];

@@ -473,4 +473,76 @@ class DashboardController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Lấy thống kê sản phẩm theo loại (male, female, couple)
+     */
+    public function getProductTypeStatistics(Request $request)
+    {
+        try {
+            $dateRange = $this->getDateRange($request);
+            $startDate = $dateRange['start_date'];
+            $endDate = $dateRange['end_date'];
+
+            // Query với điều kiện thời gian
+            $query = OrderDetail::whereHas('order', function ($q) use ($startDate, $endDate) {
+                $q->where('order_status', 'delivered');
+                if ($startDate && $endDate) {
+                    $q->whereBetween('created_at', [$startDate, $endDate]);
+                }
+            });
+
+            // Lấy thống kê theo loại sản phẩm
+            $statistics = $query->with(['productVariant.product'])
+                ->get()
+                ->groupBy(function ($item) {
+                    return $item->productVariant->product->product_type ?? 'unknown';
+                })
+                ->map(function ($items, $type) {
+                    return [
+                        'product_type' => $type,
+                        'quantity_sold' => $items->sum('quantity'),
+                        'total_revenue' => $items->sum('total_price'),
+                        'order_count' => $items->pluck('order_id')->unique()->count(),
+                    ];
+                })
+                ->values();
+
+            // Đảm bảo có đầy đủ 3 loại (male, female, couple)
+            $types = ['male', 'female', 'couple'];
+            $result = [];
+
+            foreach ($types as $type) {
+                $stat = $statistics->firstWhere('product_type', $type);
+                $result[$type] = [
+                    'product_type' => $type,
+                    'quantity_sold' => $stat ? $stat['quantity_sold'] : 0,
+                    'total_revenue' => $stat ? $stat['total_revenue'] : 0,
+                    'order_count' => $stat ? $stat['order_count'] : 0,
+                ];
+            }
+
+            // Tính tổng
+            $totalQuantity = array_sum(array_column($result, 'quantity_sold'));
+            $totalRevenue = array_sum(array_column($result, 'total_revenue'));
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'statistics' => $result,
+                    'summary' => [
+                        'total_quantity' => $totalQuantity,
+                        'total_revenue' => $totalRevenue,
+                        'total_orders' => array_sum(array_column($result, 'order_count')),
+                    ]
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không thể lấy thống kê theo loại sản phẩm',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

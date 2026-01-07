@@ -77,6 +77,7 @@ Route::prefix('admin')/*->middleware(['is_admin'])*/->group(function () {
     Route::get('dashboard/top-selling-products', [DashboardController::class, 'getTopSellingProducts']);
     Route::get('dashboard/recent-orders', [DashboardController::class, 'getRecentOrders']);
     Route::get('dashboard/order-status-statistics', [DashboardController::class, 'getOrderStatusStatistics']);
+    Route::get('dashboard/product-type-statistics', [DashboardController::class, 'getProductTypeStatistics']); // ✨ THÊM
     Route::get('dashboard/low-stock-products', [DashboardController::class, 'getLowStockProducts']);
 
     // Yêu cầu trả hàng

@@ -42,9 +42,9 @@ class AuthController extends Controller
                 'user_id' => $user->id,
                 'status' => 1,
             ]);
-            return response()->json(['message' => 'Thêm mới tài khoản thành công'], 201);
+            return response()->json(['message' => 'Đăng kí tài khoản thành công'], 201);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Thêm mới tài khoản thất bại', 'error' => $e->getMessage()], 500);
+            return response()->json(['message' => 'Đăng kí tài khoản thất bại', 'error' => $e->getMessage()], 500);
         } catch (ValidationException $e) {
             return response()->json(['message' => 'Dữ liệu không hợp lệ', 'errors' => $e->errors()], 422);
         }

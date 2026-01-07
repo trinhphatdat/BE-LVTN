@@ -59,7 +59,7 @@ class ProductController extends Controller
             $validated = $request->validate(
                 [
                     'brand_id' => 'required',
-                    'title' => 'required|string|max:255|unique:products,title' . $product->id,
+                    'title' => 'required|string|max:255|unique:products,title,' . $product->id,
                     'description' => 'nullable|string',
                     'product_type' => 'required|in:male,female,couple',
                     'material' => 'nullable|string|max:255',
@@ -71,6 +71,7 @@ class ProductController extends Controller
                     'title.required' => 'Tên sản phẩm là bắt buộc.',
                     'title.unique' => 'Tên sản phẩm đã tồn tại trong hệ thống.',
                     'product_type.required' => 'Loại sản phẩm là bắt buộc.',
+                    'product_type.in' => 'Loại sản phẩm không hợp lệ.',
                     'thumbnail.image' => 'Ảnh đại diện phải là một tệp hình ảnh hợp lệ.',
                     'thumbnail.mimes' => 'Ảnh đại diện phải có định dạng: jpeg, png, jpg, gif.',
                     'thumbnail.max' => 'Kích thước ảnh đại diện không được vượt quá 2MB.',
@@ -206,26 +207,25 @@ class ProductController extends Controller
     {
         try {
             $product = Product::findOrFail($id);
-            $productVariants = ProductVariant::where('product_id', $product->id)->get();
-
-
             DB::beginTransaction();
             try {
 
                 //Xoá hình biến thể
                 foreach ($product->productVariants as $variant) {
-                    if ($variant->image_url && Storage::disk('public')->exists($variant->image_url)) {
-                        Storage::disk('public')->delete($variant->image_url);
-                    }
-                    $variant->delete();
+                    // if ($variant->image_url && Storage::disk('public')->exists($variant->image_url)) {
+                    //     Storage::disk('public')->delete($variant->image_url);
+                    // }
+                    // $variant->delete();
+                    $variant->update(['status' => 0]);
                 }
 
                 //Xoá thumbnail ở product
-                if ($product->thumbnail && Storage::disk('public')->exists($product->thumbnail)) {
-                    Storage::disk('public')->delete($product->thumbnail);
-                }
+                // if ($product->thumbnail && Storage::disk('public')->exists($product->thumbnail)) {
+                //     Storage::disk('public')->delete($product->thumbnail);
+                // }
 
-                $product->delete();
+                // $product->delete();
+                $product->update(['status' => 0]);
 
                 DB::commit();
 
