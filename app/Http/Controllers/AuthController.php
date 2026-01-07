@@ -104,7 +104,16 @@ class AuthController extends Controller
 
     public function forgotPassword(Request $request)
     {
-        $request->validate(['email' => 'required|email|exists:users,email']);
+        $request->validate(
+            [
+                'email' => 'required|email|exists:users,email'
+            ],
+            [
+                'email.required' => 'Email không được để trống.',
+                'email.email' => 'Email không hợp lệ.',
+                'email.exists' => 'Email không tồn tại trong hệ thống.',
+            ]
+        );
 
         $user = User::where('email', $request->email)->first();
 
