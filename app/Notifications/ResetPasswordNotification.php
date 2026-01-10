@@ -38,7 +38,7 @@ class ResetPasswordNotification extends Notification
      */
     public function toMail(object $notifiable): MailMessage
     {
-        // Đổi URL này thành URL trang reset password của frontend VueJS
+
         $url = config('app.frontend_url') . "/account/reset-password?token={$this->token}&email={$this->email}";
 
         return (new MailMessage)

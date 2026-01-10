@@ -479,10 +479,9 @@ class ClientOrderController extends Controller
                 }
             }
 
-            $order->update([
-                'order_status' => 'cancelled',
-                'cancelled_at' => now(),
-            ]);
+            $order->order_status = 'cancelled';
+            $order->cancelled_at = Carbon::now();
+            $order->save();
 
             DB::commit();
 
