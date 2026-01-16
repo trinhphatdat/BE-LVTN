@@ -123,7 +123,7 @@ class ClientOrderController extends Controller
                 'province_id' => $request->province_id,
                 'district_id' => $request->district_id,
                 'ward_id' => $request->ward_id,
-                'payment_expires_at' => Carbon::now()->addDays(2),
+                'payment_expires_at' => Carbon::now()->addDays(1),
             ]);
 
             //  Tạo chi tiết đơn hàng + trừ stock (cả COD và VNPay)
@@ -175,7 +175,7 @@ class ClientOrderController extends Controller
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Đặt hàng thành công. Vui lòng thanh toán trong vòng 2 ngày',
+                    'message' => 'Đặt hàng thành công. Vui lòng thanh toán trong vòng 24 giờ',
                     'data' => [
                         'order' => $order,
                         'payment_url' => $paymentData->data->payment_url
