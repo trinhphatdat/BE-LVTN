@@ -119,6 +119,7 @@ class ProductController extends Controller
 
                         $updateData = [
                             'stock' => $variantData['stock'] ?? 0,
+                            'defective_stock' => $variantData['defective_stock'] ?? 0,
                             'size_id' => $variantData['size_id'],
                             'color_id' => $variantData['color_id'],
                             'original_price' => $variantData['original_price'],

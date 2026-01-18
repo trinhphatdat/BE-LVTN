@@ -299,7 +299,7 @@ class ReturnRequestController extends Controller
             // Lấy danh sách items
             $returnRequestItems = $returnRequest->returnRequestItems()->with('productVariant')->get();
 
-            // ✅ Check lý do trả hàng để quyết định cộng vào kho nào
+            //  Check lý do trả hàng để quyết định cộng vào kho nào
             $isDefective = $returnRequest->reason === 'defective';
 
             foreach ($returnRequestItems as $item) {
@@ -309,10 +309,10 @@ class ReturnRequestController extends Controller
                     $quantity = $item->return_quantity;
 
                     if ($isDefective) {
-                        // ✅ Hàng lỗi → cộng vào kho hàng lỗi
+                        //  Hàng lỗi → cộng vào kho hàng lỗi
                         $productVariant->increment('defective_stock', $quantity);
                     } else {
-                        // ✅ Hàng tốt (lý do khác: size, không đúng mô tả...) → cộng vào kho bình thường
+                        //  Hàng tốt (lý do khác: size, không đúng mô tả...) → cộng vào kho bình thường
                         $productVariant->increment('stock', $quantity);
                     }
                 }

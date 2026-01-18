@@ -19,6 +19,34 @@ class CartItemController extends Controller
         $productVariant = ProductVariant::with(['product', 'size', 'color'])
             ->findOrFail($request->product_variant_id);
 
+        // Kiểm tra product_type
+        $isCouple = $productVariant->product->product_type === 'couple';
+
+        // Kiểm tra xung đột: Nếu sản phẩm thường thì không được có couple trong giỏ và ngược lại
+        $existingItems = CartItem::with('productVariant.product')
+            ->where('cart_id', $request->cart_id)
+            ->get();
+
+        foreach ($existingItems as $item) {
+            $existingIsCouple = $item->productVariant?->product?->product_type === 'couple';
+            if ($isCouple !== $existingIsCouple) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $isCouple
+                        ? 'Không thể thêm sản phẩm couple khi giỏ hàng đã có sản phẩm thường. Vui lòng thanh toán hoặc xóa sản phẩm hiện có.'
+                        : 'Không thể thêm sản phẩm thường khi giỏ hàng đã có sản phẩm couple. Vui lòng thanh toán hoặc xóa sản phẩm couple.'
+                ], 400);
+            }
+        }
+
+        // Sản phẩm couple không được thêm theo cách thông thường
+        if ($isCouple) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Vui lòng sử dụng chức năng thêm couple để thêm sản phẩm này.'
+            ], 400);
+        }
+
         // Kiểm tra stock
         if ($productVariant->stock < $request->quantity) {
             return response()->json([
@@ -50,7 +78,7 @@ class CartItemController extends Controller
             }
 
             $existingCartItem->quantity = $newQuantity;
-            $existingCartItem->price = $price; // Cập nhật giá mới nhất
+            $existingCartItem->price = $price;
             $existingCartItem->total_price = $price * $newQuantity;
             $existingCartItem->save();
 
@@ -61,7 +89,7 @@ class CartItemController extends Controller
                 'cart_id' => $request->cart_id,
                 'product_variant_id' => $request->product_variant_id,
                 'quantity' => $request->quantity,
-                'price' => $price, // Giá đã tính giảm từ variant
+                'price' => $price,
                 'total_price' => $price * $request->quantity,
             ]);
         }
@@ -94,23 +122,62 @@ class CartItemController extends Controller
 
     public function destroy(string $id)
     {
-        $cartItem = CartItem::find($id);
+        DB::beginTransaction();
+        try {
+            $cartItem = CartItem::with('productVariant.product')->find($id);
 
-        if (!$cartItem) {
-            return response()->json(['message' => 'Không tìm thấy sản phẩm'], 404);
+            if (!$cartItem) {
+                return response()->json(['message' => 'Không tìm thấy sản phẩm'], 404);
+            }
+
+            $isCouple = $cartItem->productVariant?->product?->product_type === 'couple';
+
+            // Nếu là sản phẩm couple, tìm và xóa item còn lại cùng product_id
+            if ($isCouple) {
+                $productId = $cartItem->productVariant->product_id;
+
+                // Xóa tất cả cart items có cùng product_id (cả 2 variants của couple)
+                CartItem::whereHas('productVariant', function ($query) use ($productId) {
+                    $query->where('product_id', $productId);
+                })
+                    ->where('cart_id', $cartItem->cart_id)
+                    ->delete();
+
+                DB::commit();
+                return response()->json([
+                    'message' => 'Xóa bộ couple khỏi giỏ hàng thành công'
+                ], 200);
+            }
+
+            // Sản phẩm thường - xóa bình thường
+            $cartItem->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Xóa sản phẩm khỏi giỏ hàng thành công'
+            ], 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Có lỗi xảy ra: ' . $e->getMessage()
+            ], 500);
         }
-
-        $cartItem->delete();
-
-        return response()->json(['message' => 'Xoá sản phẩm khỏi giỏ hàng thành công'], 200);
     }
 
     public function increment(string $id)
     {
-        $item = CartItem::with('productVariant')->find($id);
+        $item = CartItem::with('productVariant.product')->find($id);
 
         if (!$item) {
             return response()->json(['message' => 'Không tìm thấy sản phẩm'], 404);
+        }
+
+        // Không cho phép tăng số lượng sản phẩm couple
+        if ($item->productVariant?->product?->product_type === 'couple') {
+            return response()->json([
+                'message' => 'Không thể thay đổi số lượng sản phẩm couple. Mỗi bộ couple chỉ có 1 áo nam và 1 áo nữ.'
+            ], 400);
         }
 
         $productVariant = $item->productVariant;
@@ -124,7 +191,6 @@ class CartItemController extends Controller
         }
 
         $item->quantity += 1;
-        // Cập nhật giá mới nhất từ variant
         $item->price = $productVariant->price;
         $item->total_price = $item->price * $item->quantity;
         $item->save();
@@ -139,15 +205,21 @@ class CartItemController extends Controller
 
     public function decrement(string $id)
     {
-        $item = CartItem::with('productVariant')->find($id);
+        $item = CartItem::with('productVariant.product')->find($id);
 
         if (!$item) {
             return response()->json(['message' => 'Không tìm thấy sản phẩm'], 404);
         }
 
+        // Không cho phép giảm số lượng sản phẩm couple
+        if ($item->productVariant?->product?->product_type === 'couple') {
+            return response()->json([
+                'message' => 'Không thể thay đổi số lượng sản phẩm couple. Mỗi bộ couple chỉ có 1 áo nam và 1 áo nữ.'
+            ], 400);
+        }
+
         if ($item->quantity > 1) {
             $item->quantity -= 1;
-            // Cập nhật giá mới nhất từ variant
             $item->price = $item->productVariant->price;
             $item->total_price = $item->price * $item->quantity;
             $item->save();
@@ -165,7 +237,6 @@ class CartItemController extends Controller
         ], 400);
     }
 
-    // Thêm couple: Thêm 2 variants riêng biệt như bình thường
     public function storeCouple(Request $request)
     {
         $maleVariant = ProductVariant::with(['product', 'size', 'color'])
@@ -173,6 +244,55 @@ class CartItemController extends Controller
 
         $femaleVariant = ProductVariant::with(['product', 'size', 'color'])
             ->findOrFail($request->female_variant_id);
+
+        // Kiểm tra cả 2 variants phải cùng product và product đó phải là couple
+        if ($maleVariant->product_id !== $femaleVariant->product_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Hai variants phải thuộc cùng một sản phẩm'
+            ], 400);
+        }
+
+        if ($maleVariant->product->product_type !== 'couple') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Sản phẩm này không phải là sản phẩm couple'
+            ], 400);
+        }
+
+        // Kiểm tra xung đột: Không được có sản phẩm thường trong giỏ
+        $existingItems = CartItem::with('productVariant.product')
+            ->where('cart_id', $request->cart_id)
+            ->get();
+
+        $hasNormalProduct = false;
+        $hasCoupleProduct = false;
+
+        foreach ($existingItems as $item) {
+            $itemProductType = $item->productVariant?->product?->product_type;
+
+            if ($itemProductType === 'couple') {
+                $hasCoupleProduct = true;
+            } else {
+                $hasNormalProduct = true;
+            }
+        }
+
+        // Không cho phép thêm couple nếu đã có sản phẩm thường
+        if ($hasNormalProduct) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không thể thêm sản phẩm couple khi giỏ hàng đã có sản phẩm thường. Vui lòng thanh toán hoặc xóa sản phẩm hiện có.'
+            ], 400);
+        }
+
+        // ✨ RÀNG BUỘC MỚI: Không cho phép thêm couple nếu đã có couple khác
+        if ($hasCoupleProduct) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Giỏ hàng chỉ được chứa 1 bộ couple. Vui lòng thanh toán hoặc xóa bộ couple hiện tại trước khi thêm bộ mới.'
+            ], 400);
+        }
 
         // Kiểm tra stock của cả 2 variants
         if ($maleVariant->stock < 1) {
@@ -191,65 +311,33 @@ class CartItemController extends Controller
 
         DB::beginTransaction();
         try {
-            // Thêm variant nam
-            $existingMaleItem = CartItem::where('cart_id', $request->cart_id)
-                ->where('product_variant_id', $request->male_variant_id)
-                ->first();
-
-            if ($existingMaleItem) {
-                // Nếu đã có, tăng số lượng
-                if ($maleVariant->stock < $existingMaleItem->quantity + 1) {
+            // Nếu 2 variants giống nhau thì kiểm tra stock đủ cho 2 sản phẩm
+            if ($request->male_variant_id === $request->female_variant_id) {
+                if ($maleVariant->stock < 2) {
                     DB::rollBack();
                     return response()->json([
                         'success' => false,
-                        'message' => 'Size nam không đủ hàng trong kho'
+                        'message' => 'Không đủ hàng trong kho cho bộ couple này (cần 2 sản phẩm)'
                     ], 400);
                 }
-                $existingMaleItem->quantity += 1;
-                $existingMaleItem->price = $maleVariant->price;
-                $existingMaleItem->total_price = $maleVariant->price * $existingMaleItem->quantity;
-                $existingMaleItem->save();
-                $maleCartItem = $existingMaleItem;
-            } else {
-                // Nếu chưa có, tạo mới
-                $maleCartItem = CartItem::create([
-                    'cart_id' => $request->cart_id,
-                    'product_variant_id' => $request->male_variant_id,
-                    'quantity' => 1,
-                    'price' => $maleVariant->price,
-                    'total_price' => $maleVariant->price,
-                ]);
             }
 
-            // Thêm variant nữ
-            $existingFemaleItem = CartItem::where('cart_id', $request->cart_id)
-                ->where('product_variant_id', $request->female_variant_id)
-                ->first();
+            // Tạo mới 2 cart items
+            $maleCartItem = CartItem::create([
+                'cart_id' => $request->cart_id,
+                'product_variant_id' => $request->male_variant_id,
+                'quantity' => 1,
+                'price' => $maleVariant->price,
+                'total_price' => $maleVariant->price,
+            ]);
 
-            if ($existingFemaleItem) {
-                // Nếu đã có, tăng số lượng
-                if ($femaleVariant->stock < $existingFemaleItem->quantity + 1) {
-                    DB::rollBack();
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Size nữ không đủ hàng trong kho'
-                    ], 400);
-                }
-                $existingFemaleItem->quantity += 1;
-                $existingFemaleItem->price = $femaleVariant->price;
-                $existingFemaleItem->total_price = $femaleVariant->price * $existingFemaleItem->quantity;
-                $existingFemaleItem->save();
-                $femaleCartItem = $existingFemaleItem;
-            } else {
-                // Nếu chưa có, tạo mới
-                $femaleCartItem = CartItem::create([
-                    'cart_id' => $request->cart_id,
-                    'product_variant_id' => $request->female_variant_id,
-                    'quantity' => 1,
-                    'price' => $femaleVariant->price,
-                    'total_price' => $femaleVariant->price,
-                ]);
-            }
+            $femaleCartItem = CartItem::create([
+                'cart_id' => $request->cart_id,
+                'product_variant_id' => $request->female_variant_id,
+                'quantity' => 1,
+                'price' => $femaleVariant->price,
+                'total_price' => $femaleVariant->price,
+            ]);
 
             DB::commit();
 
