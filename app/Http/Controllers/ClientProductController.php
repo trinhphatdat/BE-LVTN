@@ -9,7 +9,8 @@ class ClientProductController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Product::with(['brand', 'productVariants.color', 'productVariants.size']);
+        $query = Product::with(['brand', 'productVariants.color', 'productVariants.size'])
+            ->where('status', 1);
 
         // Lọc theo khoảng giá (dựa trên min_price và max_price của product)
         if ($request->has('min_price') && $request->has('max_price')) {
@@ -83,7 +84,7 @@ class ClientProductController extends Controller
     }
     public function getAllShirts()
     {
-        $products = Product::all();
+        $products = Product::where('status', 1)->get();
         return response()->json($products);
     }
 

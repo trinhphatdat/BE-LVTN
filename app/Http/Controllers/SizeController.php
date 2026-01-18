@@ -8,9 +8,13 @@ use Illuminate\Validation\ValidationException;
 
 class SizeController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $sizes = Size::all();
+        $query = Size::query();
+        if ($request->has('status') && $request->status !== 'all') {
+            $query->where('status', $request->status);
+        }
+        $sizes = $query->orderBy('created_at', 'asc')->get();
         return response()->json($sizes);
     }
 

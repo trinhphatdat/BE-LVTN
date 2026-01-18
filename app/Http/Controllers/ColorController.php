@@ -8,9 +8,13 @@ use Illuminate\Validation\ValidationException;
 
 class ColorController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $colors = Color::all();
+        $query = Color::query();
+        if ($request->has('status') && $request->status !== 'all') {
+            $query->where('status', $request->status);
+        }
+        $colors = $query->orderBy('created_at', 'desc')->get();
         return response()->json($colors);
     }
 

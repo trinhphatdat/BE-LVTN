@@ -286,7 +286,6 @@ class CartItemController extends Controller
             ], 400);
         }
 
-        // ✨ RÀNG BUỘC MỚI: Không cho phép thêm couple nếu đã có couple khác
         if ($hasCoupleProduct) {
             return response()->json([
                 'success' => false,

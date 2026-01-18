@@ -11,22 +11,37 @@ use Illuminate\Validation\ValidationException;
 
 class ProductController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $product = Product::with([
+        // $product = Product::with([
+        //     'brand',
+        //     'productVariants' => function ($query) {
+        //         $query->where('status', 1);
+        //     },
+        //     'productVariants.size',
+        //     'productVariants.color'
+        // ])
+        //     ->whereHas('productVariants', function ($query) {
+        //         $query->where('status', 1);
+        //     })
+        //     ->get();
+
+        // return response()->json($product);
+        $query = Product::with([
             'brand',
             'productVariants' => function ($query) {
-                $query->where('status', 1);
+                // $query->where('status', 1);
             },
             'productVariants.size',
             'productVariants.color'
-        ])
-            ->whereHas('productVariants', function ($query) {
-                $query->where('status', 1);
-            })
-            ->get();
-
-        return response()->json($product);
+        ])->whereHas('productVariants', function ($query) {
+            // $query->where('status', 1);
+        });
+        if ($request->has('status') && $request->status !== 'all') {
+            $query->where('status', $request->status);
+        }
+        $products = $query->orderBy('created_at', 'desc')->get();
+        return response()->json($products);
     }
 
     public function show(string $id)

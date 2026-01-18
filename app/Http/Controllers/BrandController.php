@@ -9,9 +9,13 @@ use Illuminate\Support\Facades\Storage;
 
 class BrandController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $brands = Brand::all();
+        $query = Brand::query();
+        if ($request->has('status') && $request->status !== 'all') {
+            $query->where('status', $request->status);
+        }
+        $brands = $query->orderBy('created_at', 'desc')->get();
         return response()->json($brands);
     }
 

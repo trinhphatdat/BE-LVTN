@@ -16,8 +16,15 @@ class UserController extends Controller
 {
     public function index()
     {
-        $users = User::where('role_id', '!=', 1)->get();
-        // $users = User::all();
+        // $users = User::where('role_id', '!=', 1)->get();
+        // // $users = User::all();
+        // return response()->json($users, 200);
+        $query = User::query();
+        $query->where('role_id', '!=', 1);
+        if (request()->has('status') && request()->status !== 'all') {
+            $query->where('status', request()->status);
+        }
+        $users = $query->orderBy('created_at', 'desc')->get();
         return response()->json($users, 200);
     }
 
