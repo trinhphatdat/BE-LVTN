@@ -18,7 +18,7 @@ class DashboardController extends Controller
      */
     private function getDateRange(Request $request)
     {
-        $filterType = $request->input('filter_type', 'all'); // all, today, yesterday, this_week, last_week, this_month, last_month, custom
+        $filterType = $request->input('filter_type', 'all');
         $startDate = null;
         $endDate = null;
 
@@ -92,16 +92,23 @@ class DashboardController extends Controller
             $startDate = $dateRange['start_date'];
             $endDate = $dateRange['end_date'];
 
-            //  Tổng doanh thu THỰC TẾ (sau khi trừ hoàn trả)
+            // Tổng doanh thu GỘP (chưa trừ hoàn trả)
             $totalRevenueQuery = Order::where('order_status', 'delivered')
                 ->where('payment_status', 'paid');
             $totalRevenueQuery = $this->applyDateFilter($totalRevenueQuery, $startDate, $endDate);
             $totalRevenue = $totalRevenueQuery->sum('total_money');
 
-            $totalRefundedQuery = Order::where('order_status', 'delivered');
-            $totalRefundedQuery = $this->applyDateFilter($totalRefundedQuery, $startDate, $endDate);
-            $totalRefunded = $totalRefundedQuery->sum('refunded_amount');
+            // Tổng số tiền đã hoàn trả (lấy từ return_requests đã refunded)
+            // Lọc theo thời gian TẠO ĐơN HÀNG, KHÔNG phải thời gian refund
+            $totalRefundedQuery = ReturnRequest::where('status', 'refunded')
+                ->whereHas('order', function ($q) use ($startDate, $endDate) {
+                    if ($startDate && $endDate) {
+                        $q->whereBetween('created_at', [$startDate, $endDate]);
+                    }
+                });
+            $totalRefunded = $totalRefundedQuery->sum('refund_amount');
 
+            // Doanh thu thực tế = Doanh thu gộp - Số tiền đã hoàn trả
             $actualRevenue = $totalRevenue - $totalRefunded;
 
             // Tổng đơn hàng
@@ -112,7 +119,7 @@ class DashboardController extends Controller
             // Tổng sản phẩm (không lọc theo thời gian)
             $totalProducts = Product::count();
 
-            // Tổng khách hàng (có thể lọc theo thời gian đăng ký)
+            // Tổng khách hàng (lọc theo thời gian đăng ký)
             $totalCustomersQuery = User::where('role_id', 2);
             $totalCustomersQuery = $this->applyDateFilter($totalCustomersQuery, $startDate, $endDate);
             $totalCustomers = $totalCustomersQuery->count();
@@ -125,21 +132,7 @@ class DashboardController extends Controller
             // Sản phẩm sắp hết hàng (< 10) - không lọc theo thời gian
             $lowStockProducts = ProductVariant::where('stock', '<', 10)->count();
 
-            //  Doanh thu kỳ hiện tại
-            $currentPeriodRevenue = $actualRevenue;
-
-            //  Doanh thu kỳ trước (để tính tăng trưởng)
-            $previousPeriodRevenue = $this->getPreviousPeriodRevenue($dateRange);
-
-            // Tính tỷ lệ tăng trưởng
-            $revenueGrowth = 0;
-            if ($previousPeriodRevenue > 0) {
-                $revenueGrowth = (($currentPeriodRevenue - $previousPeriodRevenue) / $previousPeriodRevenue) * 100;
-            } elseif ($currentPeriodRevenue > 0) {
-                $revenueGrowth = 100;
-            }
-
-            //  Thống kê đơn trả hàng
+            // Thống kê yêu cầu trả hàng
             $totalReturnRequestsQuery = ReturnRequest::query();
             $totalReturnRequestsQuery = $this->applyDateFilter($totalReturnRequestsQuery, $startDate, $endDate);
             $totalReturnRequests = $totalReturnRequestsQuery->count();
@@ -152,11 +145,7 @@ class DashboardController extends Controller
             $completedReturnRequestsQuery = $this->applyDateFilter($completedReturnRequestsQuery, $startDate, $endDate);
             $completedReturnRequests = $completedReturnRequestsQuery->count();
 
-            $totalRefundedAmountQuery = ReturnRequest::where('status', 'refunded');
-            $totalRefundedAmountQuery = $this->applyDateFilter($totalRefundedAmountQuery, $startDate, $endDate);
-            $totalRefundedAmount = $totalRefundedAmountQuery->sum('refund_amount');
-
-            //  Đơn hàng có hoàn trả
+            // Đơn hàng có hoàn trả (lọc theo thời gian tạo đơn)
             $ordersWithRefundsQuery = Order::where('refunded_amount', '>', 0);
             $ordersWithRefundsQuery = $this->applyDateFilter($ordersWithRefundsQuery, $startDate, $endDate);
             $ordersWithRefunds = $ordersWithRefundsQuery->count();
@@ -172,12 +161,9 @@ class DashboardController extends Controller
                     'totalCustomers' => $totalCustomers,
                     'pendingOrders' => $pendingOrders,
                     'lowStockProducts' => $lowStockProducts,
-                    'currentMonthRevenue' => $currentPeriodRevenue,
-                    'revenueGrowth' => round($revenueGrowth, 2),
                     'totalReturnRequests' => $totalReturnRequests,
                     'pendingReturnRequests' => $pendingReturnRequests,
                     'completedReturnRequests' => $completedReturnRequests,
-                    'totalRefundedAmount' => $totalRefundedAmount,
                     'ordersWithRefunds' => $ordersWithRefunds,
                     'filter_info' => [
                         'filter_type' => $dateRange['filter_type'],
@@ -196,36 +182,7 @@ class DashboardController extends Controller
     }
 
     /**
-     * Tính doanh thu kỳ trước để so sánh
-     */
-    private function getPreviousPeriodRevenue($dateRange)
-    {
-        $filterType = $dateRange['filter_type'];
-        $startDate = $dateRange['start_date'];
-        $endDate = $dateRange['end_date'];
-
-        if ($filterType === 'all' || !$startDate || !$endDate) {
-            return 0;
-        }
-
-        $daysDiff = $startDate->diffInDays($endDate) + 1;
-        $previousStart = $startDate->copy()->subDays($daysDiff);
-        $previousEnd = $endDate->copy()->subDays($daysDiff);
-
-        $previousRevenue = Order::where('order_status', 'delivered')
-            ->where('payment_status', 'paid')
-            ->whereBetween('created_at', [$previousStart, $previousEnd])
-            ->sum('total_money');
-
-        $previousRefunded = Order::where('order_status', 'delivered')
-            ->whereBetween('created_at', [$previousStart, $previousEnd])
-            ->sum('refunded_amount');
-
-        return $previousRevenue - $previousRefunded;
-    }
-
-    /**
-     *  Lấy doanh thu theo tháng trong năm (bao gồm gross/net revenue)
+     * Lấy doanh thu theo tháng trong năm (bao gồm gross/net revenue)
      */
     public function getMonthlyRevenue(Request $request)
     {
@@ -248,7 +205,7 @@ class DashboardController extends Controller
 
             $monthlyData = $query->selectRaw('MONTH(created_at) as month')
                 ->selectRaw('SUM(total_money) as gross_revenue')
-                ->selectRaw('SUM(refunded_amount) as refunded_amount')
+                ->selectRaw('SUM(COALESCE(refunded_amount, 0)) as refunded_amount')
                 ->selectRaw('SUM(total_money - COALESCE(refunded_amount, 0)) as net_revenue')
                 ->selectRaw('COUNT(*) as order_count')
                 ->groupBy('month')
@@ -403,7 +360,7 @@ class DashboardController extends Controller
     }
 
     /**
-     *  Lấy yêu cầu trả hàng gần đây
+     * Lấy yêu cầu trả hàng gần đây
      */
     public function getRecentReturnRequests(Request $request)
     {
@@ -434,7 +391,7 @@ class DashboardController extends Controller
     }
 
     /**
-     *  Lấy danh sách chi tiết sản phẩm sắp hết hàng
+     * Lấy danh sách chi tiết sản phẩm sắp hết hàng
      */
     public function getLowStockProducts(Request $request)
     {
