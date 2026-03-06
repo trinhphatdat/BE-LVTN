@@ -1,5 +1,4 @@
 <?php
-// update-cloudinary-urls.php
 require __DIR__ . '/vendor/autoload.php';
 
 $app = require_once __DIR__ . '/bootstrap/app.php';
@@ -7,65 +6,64 @@ $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
 use App\Models\Product;
 use App\Models\Brand;
-use Cloudinary\Cloudinary;
+use Illuminate\Support\Facades\DB;
 
 echo "🔄 Updating URLs to Cloudinary...\n\n";
 
-$cloudinary = new Cloudinary([
-    'cloud' => [
-        'cloud_name' => env('CLOUDINARY_CLOUD_NAME'),
-        'api_key' => env('CLOUDINARY_API_KEY'),
-        'api_secret' => env('CLOUDINARY_API_SECRET')
-    ]
-]);
+DB::beginTransaction();
 
-// Update Products
-$products = Product::whereNotNull('thumbnail')
-    ->where('thumbnail', 'NOT LIKE', 'https://res.cloudinary.com%')
-    ->get();
+try {
+    // Update Products
+    $products = Product::whereNotNull('thumbnail')
+        ->where('thumbnail', 'NOT LIKE', 'https://res.cloudinary.com%')
+        ->get();
 
-echo "Found " . $products->count() . " products to update\n\n";
+    echo "Found " . $products->count() . " products to update\n\n";
 
-foreach ($products as $product) {
-    $oldUrl = $product->thumbnail;
-    $filename = basename($oldUrl);
+    foreach ($products as $product) {
+        $oldUrl = $product->thumbnail;
+        $filename = basename($oldUrl);
 
-    // Get Cloudinary URL từ public_id
-    $publicId = 'products/' . pathinfo($filename, PATHINFO_FILENAME);
-
-    try {
-        // Lấy resource info để có URL chính xác
-        $result = $cloudinary->adminApi()->asset($publicId);
-        $newUrl = $result['secure_url'];
+        // Tạo Cloudinary URL trực tiếp
+        $cloudName = env('CLOUDINARY_CLOUD_NAME');
+        $publicId = 'products/' . pathinfo($filename, PATHINFO_FILENAME);
+        $newUrl = "https://res.cloudinary.com/{$cloudName}/image/upload/{$publicId}";
 
         $product->update(['thumbnail' => $newUrl]);
-        echo "✓ Product #{$product->id}: {$newUrl}\n";
-    } catch (\Exception $e) {
-        echo "✗ Product #{$product->id}: ERROR - {$e->getMessage()}\n";
+        echo "✓ Product #{$product->id}: {$filename} -> {$newUrl}\n";
     }
-}
 
-// Update Brands
-$brands = Brand::whereNotNull('logo_url')
-    ->where('logo_url', 'NOT LIKE', 'https://res.cloudinary.com%')
-    ->get();
+    // Update Brands
+    $brands = Brand::whereNotNull('logo_url')
+        ->where('logo_url', 'NOT LIKE', 'https://res.cloudinary.com%')
+        ->get();
 
-echo "\nFound " . $brands->count() . " brands to update\n\n";
+    echo "\nFound " . $brands->count() . " brands to update\n\n";
 
-foreach ($brands as $brand) {
-    $oldUrl = $brand->logo_url;
-    $filename = basename($oldUrl);
-    $publicId = 'brands/' . pathinfo($filename, PATHINFO_FILENAME);
+    foreach ($brands as $brand) {
+        $oldUrl = $brand->logo_url;
+        $filename = basename($oldUrl);
+        $publicId = 'brands/' . pathinfo($filename, PATHINFO_FILENAME);
 
-    try {
-        $result = $cloudinary->adminApi()->asset($publicId);
-        $newUrl = $result['secure_url'];
+        $cloudName = env('CLOUDINARY_CLOUD_NAME');
+        $newUrl = "https://res.cloudinary.com/{$cloudName}/image/upload/{$publicId}";
 
         $brand->update(['logo_url' => $newUrl]);
-        echo "✓ Brand #{$brand->id}: {$newUrl}\n";
-    } catch (\Exception $e) {
-        echo "✗ Brand #{$brand->id}: ERROR - {$e->getMessage()}\n";
+        echo "✓ Brand #{$brand->id}: {$filename} -> {$newUrl}\n";
     }
-}
 
-echo "\n✅ Update completed!\n";
+    echo "\n❓ Do you want to commit these changes? (yes/no): ";
+    $handle = fopen("php://stdin", "r");
+    $confirm = trim(fgets($handle));
+
+    if (strtolower($confirm) === 'yes') {
+        DB::commit();
+        echo "\n✅ Update completed and committed!\n";
+    } else {
+        DB::rollBack();
+        echo "\n↩️  Changes rolled back!\n";
+    }
+} catch (\Exception $e) {
+    DB::rollBack();
+    echo "\n❌ Error: " . $e->getMessage() . "\n";
+}
