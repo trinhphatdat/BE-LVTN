@@ -13,57 +13,78 @@ echo "🔄 Updating URLs to Cloudinary...\n\n";
 DB::beginTransaction();
 
 try {
-    // Update Products
+    $cloudName = env('CLOUDINARY_CLOUD_NAME');
+
+    if (!$cloudName) {
+        throw new Exception("CLOUDINARY_CLOUD_NAME not found in .env");
+    }
+
+    echo "Using Cloudinary Cloud Name: {$cloudName}\n\n";
+
+    // Update Products - Tìm tất cả URL không phải là URL đầy đủ của Cloudinary
     $products = Product::whereNotNull('thumbnail')
-        ->where('thumbnail', 'NOT LIKE', 'https://res.cloudinary.com%')
+        ->where(function ($query) {
+            $query->where('thumbnail', 'NOT LIKE', 'https://res.cloudinary.com%')
+                ->orWhere('thumbnail', 'LIKE', 'products/thumbnails/%');
+        })
         ->get();
 
     echo "Found " . $products->count() . " products to update\n\n";
 
     foreach ($products as $product) {
         $oldUrl = $product->thumbnail;
-        $filename = basename($oldUrl);
 
-        // Tạo Cloudinary URL trực tiếp
-        $cloudName = env('CLOUDINARY_CLOUD_NAME');
-        $publicId = 'products/' . pathinfo($filename, PATHINFO_FILENAME);
+        // Lấy tên file từ path
+        if (strpos($oldUrl, 'products/thumbnails/') !== false) {
+            // Nếu là path như: products/thumbnails/HU3cse9OtbkYRg1mGyji...
+            $filename = basename($oldUrl);
+            $publicId = 'products/thumbnails/' . pathinfo($filename, PATHINFO_FILENAME);
+        } else {
+            // Nếu là URL đầy đủ hoặc format khác
+            $filename = basename($oldUrl);
+            $publicId = 'products/thumbnails/' . pathinfo($filename, PATHINFO_FILENAME);
+        }
+
         $newUrl = "https://res.cloudinary.com/{$cloudName}/image/upload/{$publicId}";
 
         $product->update(['thumbnail' => $newUrl]);
-        echo "✓ Product #{$product->id}: {$filename} -> {$newUrl}\n";
+        echo "✓ Product #{$product->id}: {$oldUrl} -> {$newUrl}\n";
     }
 
     // Update Brands
     $brands = Brand::whereNotNull('logo_url')
-        ->where('logo_url', 'NOT LIKE', 'https://res.cloudinary.com%')
+        ->where(function ($query) {
+            $query->where('logo_url', 'NOT LIKE', 'https://res.cloudinary.com%')
+                ->orWhere('logo_url', 'LIKE', 'brands/%');
+        })
         ->get();
 
     echo "\nFound " . $brands->count() . " brands to update\n\n";
 
     foreach ($brands as $brand) {
         $oldUrl = $brand->logo_url;
-        $filename = basename($oldUrl);
-        $publicId = 'brands/' . pathinfo($filename, PATHINFO_FILENAME);
 
-        $cloudName = env('CLOUDINARY_CLOUD_NAME');
+        if (strpos($oldUrl, 'brands/') !== false) {
+            $filename = basename($oldUrl);
+            $publicId = 'brands/' . pathinfo($filename, PATHINFO_FILENAME);
+        } else {
+            $filename = basename($oldUrl);
+            $publicId = 'brands/' . pathinfo($filename, PATHINFO_FILENAME);
+        }
+
         $newUrl = "https://res.cloudinary.com/{$cloudName}/image/upload/{$publicId}";
 
         $brand->update(['logo_url' => $newUrl]);
-        echo "✓ Brand #{$brand->id}: {$filename} -> {$newUrl}\n";
+        echo "✓ Brand #{$brand->id}: {$oldUrl} -> {$newUrl}\n";
     }
 
-    echo "\n❓ Do you want to commit these changes? (yes/no): ";
-    $handle = fopen("php://stdin", "r");
-    $confirm = trim(fgets($handle));
-
-    if (strtolower($confirm) === 'yes') {
-        DB::commit();
-        echo "\n✅ Update completed and committed!\n";
-    } else {
-        DB::rollBack();
-        echo "\n↩️  Changes rolled back!\n";
-    }
+    // Auto commit (không cần xác nhận vì chạy trên Railway)
+    DB::commit();
+    echo "\n✅ Update completed and committed!\n";
+    echo "Total products updated: " . $products->count() . "\n";
+    echo "Total brands updated: " . $brands->count() . "\n";
 } catch (\Exception $e) {
     DB::rollBack();
     echo "\n❌ Error: " . $e->getMessage() . "\n";
+    echo "Stack trace: " . $e->getTraceAsString() . "\n";
 }
