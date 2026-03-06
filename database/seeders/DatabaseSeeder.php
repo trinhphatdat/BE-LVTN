@@ -2,8 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -13,16 +11,34 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        $this->command->info('🌱 Seeding database...');
 
-        // User::factory()->create([
-        //     'name' => 'Test User',
-        //     'email' => 'test@example.com',
-        // ]);
+        // Seed master data in order (parent tables first)
         $this->call([
-            UserSeeder::class,
-            DepartmentSeeder::class,
-            UsersStatusSeeder::class,
+            RolesTableSeeder::class,
+            BrandsTableSeeder::class,
+            ColorsTableSeeder::class,
+            SizesTableSeeder::class,
+            UsersTableSeeder::class,
+            ProductsTableSeeder::class,
+            ProductVariantsTableSeeder::class,
+            ProductReviewsTableSeeder::class,
+            PromotionsTableSeeder::class,
         ]);
+
+        $this->command->info('✅ Database seeding completed successfully!');
+        $this->command->newLine();
+        $this->command->info('📝 Seeded tables:');
+        $this->command->info('   - roles (3 records)');
+        $this->command->info('   - brands (2 records)');
+        $this->command->info('   - colors (14 records)');
+        $this->command->info('   - sizes (3 records)');
+        $this->command->info('   - users (3 records - Admin, Nhân viên, Khách hàng)');
+        $this->command->info('   - products (12 records)');
+        $this->command->info('   - product_variants (65 records - all sizes & colors)');
+        $this->command->info('   - product_reviews (6 records)');
+        $this->command->info('   - promotions (2 records)');
+        $this->command->newLine();
+        $this->command->warn('💡 Note: For full runtime data (orders, carts, return_requests, etc.), import database.sql file directly.');
     }
 }
